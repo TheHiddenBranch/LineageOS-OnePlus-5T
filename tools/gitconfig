@@ -1,0 +1,11 @@
+[user]
+	name = Local Dumpling Builder
+	email = dumpling-builder@localhost
+[trailer "changeid"]
+	key = Change-Id
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+

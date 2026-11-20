@@ -1,0 +1,43 @@
+Subject: [PATCH] Honor the ring-buffer test minimum kernel ABI before loading its map
+
+diff --git a/loader/bpfloader.rs b/loader/bpfloader.rs
+index f23d8820c525e48c27ced432c622cf3acba092af..74ef8b663856c78668f321fd898369a86dd5a28d 100644
+--- a/loader/bpfloader.rs
++++ b/loader/bpfloader.rs
+@@ -198,6 +198,8 @@ impl ProgDesc {
+ #[derive(Clone)]
+ struct BpfFileDesc {
+     filename: &'static str,
++    // Skip the complete object below the minimum kernel ABI.
++    min_kver: u32,
+     // Maps and Progs are pinned under /sys/fs/bpf/<prefix>.
+     prefix: &'static str,
+     // Warning: setting this to 'true' will cause the system to boot loop if there are any issues
+@@ -226,6 +228,7 @@ const GID_MEDIA_RW: u32 = AID_MEDIA_RW;
+ 
+ const BPF_FILE_DESC_DEFAULT: BpfFileDesc = BpfFileDesc {
+     filename: "",
++    min_kver: KVER_NONE,
+     prefix: "",
+     critical: false,
+     skip_on_user: false,
+@@ -330,6 +333,7 @@ const FILE_ARR: &[BpfFileDesc] = &[
+     },
+     BpfFileDesc {
+         filename: "/system/etc/bpf/bpfRingbufProg.bpf",
++        min_kver: kver(5, 10, 0),
+         critical: true,
+         skip_on_user: true,
+         maps: &[MapDesc::new(GID_ROOT, PERM_GRW, "test_ringbuf")],
+@@ -564,6 +568,11 @@ fn libbpf_worker(file_desc: &BpfFileDesc) -> Result<(), anyhow::Error> {
+         info!("Skip loading {} on user build", file_desc.filename);
+         return Ok(());
+     }
++    if file_desc.min_kver > KVER_NONE && kernel_version()? < file_desc.min_kver {
++        info!("Skip loading {} below kernel ABI {:x}",
++              file_desc.filename, file_desc.min_kver);
++        return Ok(());
++    }
+     let filepath = Path::new(file_desc.filename);
+     if !filepath.exists() {
+         if file_desc.allow_missing {

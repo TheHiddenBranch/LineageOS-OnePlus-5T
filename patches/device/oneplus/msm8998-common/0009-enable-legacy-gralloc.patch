@@ -1,0 +1,16 @@
+Subject: [PATCH] Enable the existing libui mapper 2.x fallback
+
+diff --git a/common.mk b/common.mk
+index 0a02c745db673a28092ae01313ed8381aac629dc..0950873b48139185f45910a9842fb37ad2a72621 100644
+--- a/common.mk
++++ b/common.mk
+@@ -80,6 +80,9 @@ PRODUCT_COPY_FILES += \
+     frameworks/native/data/etc/com.android.nfc_extras.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/com.android.nfc_extras.xml \
+     frameworks/native/data/etc/com.nxp.mifare.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/com.nxp.mifare.xml
+ 
++# Keep the mapper 2.x implementation supplied by this device.
++$(call soong_config_set_bool,libui,legacy_gralloc,true)
++
+ # Haters gonna hate..
+ PRODUCT_CHARACTERISTICS := nosdcard
+ 

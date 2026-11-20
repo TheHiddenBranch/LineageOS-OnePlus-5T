@@ -1,0 +1,75 @@
+From: Yonghong Song <yhs@fb.com>
+Subject: [PATCH] bpf/verifier: track register ranges through ARSH
+
+Backport upstream 9cbe1f5a32dcd6d0508326f7d9098e5bc380a4fe.
+This kernel continues to reject ALU32 ARSH; only the existing ALU64
+operation gains range tracking. The 0/1 cgroup verdict check is unchanged.
+
+diff --git a/include/linux/tnum.h b/include/linux/tnum.h
+--- a/include/linux/tnum.h
++++ b/include/linux/tnum.h
+@@ -23,8 +23,10 @@ struct tnum tnum_range(u64 min, u64 max);
+ /* Arithmetic and logical ops */
+ /* Shift a tnum left (by a fixed shift) */
+ struct tnum tnum_lshift(struct tnum a, u8 shift);
+-/* Shift a tnum right (by a fixed shift) */
++/* Shift (rsh) a tnum right (by a fixed shift) */
+ struct tnum tnum_rshift(struct tnum a, u8 shift);
++/* Shift (arsh) a tnum right (by a fixed min_shift) */
++struct tnum tnum_arshift(struct tnum a, u8 min_shift);
+ /* Add two tnums, return @a + @b */
+ struct tnum tnum_add(struct tnum a, struct tnum b);
+ /* Subtract two tnums, return @a - @b */
+diff --git a/kernel/bpf/tnum.c b/kernel/bpf/tnum.c
+--- a/kernel/bpf/tnum.c
++++ b/kernel/bpf/tnum.c
+@@ -43,6 +43,16 @@ struct tnum tnum_rshift(struct tnum a, u8 shift)
+ 	return TNUM(a.value >> shift, a.mask >> shift);
+ }
+ 
++struct tnum tnum_arshift(struct tnum a, u8 min_shift)
++{
++	/* if a.value is negative, arithmetic shifting by minimum shift
++	 * will have larger negative offset compared to more shifting.
++	 * If a.value is nonnegative, arithmetic shifting by minimum shift
++	 * will have larger positive offset compare to more shifting.
++	 */
++	return TNUM((s64)a.value >> min_shift, (s64)a.mask >> min_shift);
++}
++
+ struct tnum tnum_add(struct tnum a, struct tnum b)
+ {
+ 	u64 sm, sv, sigma, chi, mu;
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2974,6 +2974,29 @@ static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
+ 		/* We may learn something more from the var_off */
+ 		__update_reg_bounds(dst_reg);
+ 		break;
++	case BPF_ARSH:
++		if (umax_val >= insn_bitness) {
++			/* Shifts greater than 31 or 63 are undefined.
++			 * This includes shifts by a negative number.
++			 */
++			mark_reg_unknown(env, regs, insn->dst_reg);
++			break;
++		}
++
++		/* Upon reaching here, src_known is true and
++		 * umax_val is equal to umin_val.
++		 */
++		dst_reg->smin_value >>= umin_val;
++		dst_reg->smax_value >>= umin_val;
++		dst_reg->var_off = tnum_arshift(dst_reg->var_off, umin_val);
++
++		/* blow away the dst_reg umin_value/umax_value and rely on
++		 * dst_reg var_off to refine the result.
++		 */
++		dst_reg->umin_value = 0;
++		dst_reg->umax_value = U64_MAX;
++		__update_reg_bounds(dst_reg);
++		break;
+ 	default:
+ 		mark_reg_unknown(env, regs, insn->dst_reg);
+ 		break;

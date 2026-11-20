@@ -1,0 +1,51 @@
+Subject: [PATCH] Restore device-local ION labeling and legacy service access
+
+diff --git a/sepolicy/vendor/file_contexts b/sepolicy/vendor/file_contexts
+index 7c2645e847be65c7f78d8169d1b9ee99ddbbc81b..dda0160a2c0cce77fa98a0330c7b3dec5022c9b9 100644
+--- a/sepolicy/vendor/file_contexts
++++ b/sepolicy/vendor/file_contexts
+@@ -8,6 +8,7 @@
+ 
+ # Devices
+ /dev/dash                                                       u:object_r:dash_device:s0
++/dev/ion                                                        u:object_r:ion_device:s0
+ 
+ # Fingerprint
+ /data/system/users/0/fpdata(/.*)?                               u:object_r:fingerprintd_data_file:s0
+diff --git a/sepolicy/vendor/ion.te b/sepolicy/vendor/ion.te
+new file mode 100644
+index 0000000000000000000000000000000000000000..3c3923ed0fc4039e5adaca95481563be18eecee0
+--- /dev/null
++++ b/sepolicy/vendor/ion.te
+@@ -0,0 +1,31 @@
++# This vendor kernel uses ION. Restore the legacy platform permissions for
++# graphics, media and secure services after Android 17 removed them.
++# Keep isolated apps excluded; fwk_bufferhub is private to platform policy.
++allow { appdomain -isolated_app_all } ion_device:chr_file r_file_perms;
++allow bootanim ion_device:chr_file rw_file_perms;
++allow bufferhubd ion_device:chr_file r_file_perms;
++allow cameraserver ion_device:chr_file rw_file_perms;
++allow fingerprintd ion_device:chr_file r_file_perms;
++allow gatekeeperd ion_device:chr_file r_file_perms;
++allow gpuservice ion_device:chr_file r_file_perms;
++allow hal_audio ion_device:chr_file r_file_perms;
++allow hal_camera ion_device:chr_file rw_file_perms;
++allow hal_cas ion_device:chr_file rw_file_perms;
++allow hal_codec2_client ion_device:chr_file r_file_perms;
++allow hal_codec2_server ion_device:chr_file r_file_perms;
++allow hal_drm ion_device:chr_file rw_file_perms;
++allow hal_face ion_device:chr_file r_file_perms;
++allow hal_fingerprint ion_device:chr_file r_file_perms;
++allow hal_gatekeeper ion_device:chr_file r_file_perms;
++allow hal_graphics_allocator ion_device:chr_file r_file_perms;
++allow hal_graphics_composer ion_device:chr_file r_file_perms;
++allow hal_keymaster ion_device:chr_file r_file_perms;
++allow { hal_keymint_server -coredomain } ion_device:chr_file r_file_perms;
++allow hal_neuralnetworks_server ion_device:chr_file r_file_perms;
++allow hal_omx_server ion_device:chr_file rw_file_perms;
++allow mediaserver ion_device:chr_file r_file_perms;
++allow rs ion_device:chr_file r_file_perms;
++allow surfaceflinger ion_device:chr_file r_file_perms;
++allow system_server ion_device:chr_file r_file_perms;
++allow tee ion_device:chr_file r_file_perms;
++allow zygote ion_device:chr_file r_file_perms;

@@ -1,0 +1,37 @@
+diff --git a/include/linux/typecheck.h b/include/linux/typecheck.h
+index 20d310331..2790bd645 100644
+--- a/include/linux/typecheck.h
++++ b/include/linux/typecheck.h
+@@ -7,8 +7,8 @@
+  * Always evaluates to 1 so you may use it easily in comparisons.
+  */
+ #define typecheck(type,x) \
+-({	type __dummy; \
+-	typeof(x) __dummy2; \
++({	type __dummy = { 0 }; \
++	typeof(x) __dummy2 = { 0 }; \
+ 	(void)(&__dummy == &__dummy2); \
+ 	1; \
+ })
+diff --git a/techpack/audio/dsp/usf.c b/techpack/audio/dsp/usf.c
+index 263ba1f8b..cfca821e4 100644
+--- a/techpack/audio/dsp/usf.c
++++ b/techpack/audio/dsp/usf.c
+@@ -1910,7 +1910,7 @@ static void usf_compat_xx_info_type(struct us_xx_info_type32 *us_xx_info32,
+ 
+ static int usf_set_tx_info32(struct usf_type *usf, unsigned long arg)
+ {
+-	struct us_tx_info_type32 config_tx32;
++	struct us_tx_info_type32 config_tx32 = { 0 };
+ 	struct us_tx_info_type config_tx;
+ 
+ 	int rc = copy_from_user(&config_tx32,
+@@ -1932,7 +1932,7 @@ static int usf_set_tx_info32(struct usf_type *usf, unsigned long arg)
+ 
+ static int usf_set_rx_info32(struct usf_type *usf, unsigned long arg)
+ {
+-	struct us_rx_info_type32 config_rx32;
++	struct us_rx_info_type32 config_rx32 = { 0 };
+ 	struct us_rx_info_type config_rx;
+ 
+ 	int rc = copy_from_user(&config_rx32,

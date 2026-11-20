@@ -1,0 +1,13 @@
+diff --git a/tools/clean_headers.sh b/tools/clean_headers.sh
+--- a/tools/clean_headers.sh
++++ b/tools/clean_headers.sh
+@@ -7,3 +7,9 @@ export ANDROID_BUILD_TOP="$PWD"
+     "$1/usr/include/asm/signal.h" \
+     "$1/usr/include/asm-generic/signal.h" \
+     "$1/usr/include/linux/eventpoll.h"
++
++# Bionic provides this POSIX type in sched.h; keep only the kernel-specific
++# scheduling types in the exported header to avoid duplicate definitions.
++if [ -f "$1/usr/include/linux/sched/types.h" ]; then
++    sed -i '/^struct sched_param {/,/^};/d' "$1/usr/include/linux/sched/types.h"
++fi

@@ -1,0 +1,98 @@
+Subject: [PATCH] Align the skb BPF context ABI and backport GSO reads
+
+Adapt the GSO context conversion from Linux v5.7, including the
+source/destination register alias fix in the shared-info pointer lookup.
+Keep unsupported timestamp and wire-length fields inaccessible.
+
+Upstream: cf62089b0edd7e74a1f474844b4d9f7b5697fb5c
+Fix prerequisite: 06a22d897d82f12776d44dbf0850f5895469cb2a
+
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index e071c1274630fdef7af704226c2f177f28b6f551..999e6d70a9d79de075f17612b268a3e5cc6ae380 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -1197,10 +1197,15 @@ struct __sk_buff {
+ 	__u32 remote_port;	/* Stored in network byte order */
+ 	__u32 local_port;	/* stored in host byte order */
+ 
+-	__bpf_md_ptr(struct bpf_flow_keys *, flow_keys);
+ 	/* ... here. */
++
+ 	__u32 data_meta;
++	__bpf_md_ptr(struct bpf_flow_keys *, flow_keys);
++	__u64 tstamp;
++	__u32 wire_len;
++	__u32 gso_segs;
+ 	__bpf_md_ptr(struct bpf_sock *, sk);
++	__u32 gso_size;
+ };
+ 
+ struct bpf_tunnel_key {
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 6e08722ee70c0273ec2d8f6724239e652559453e..401119aa500844cb5c72ee9d9927bfd0d3632f74 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -4163,6 +4163,12 @@ static bool bpf_skb_is_valid_access(int off, int size, enum bpf_access_type type
+ 		if (size != sizeof(__u64))
+ 			return false;
+ 		break;
++	/* Preserve the unsupported timestamp/wire-length access restrictions.
++	 * Their UAPI slots are required for the canonical GSO/socket offsets.
++	 */
++	case bpf_ctx_range(struct __sk_buff, tstamp):
++	case bpf_ctx_range(struct __sk_buff, wire_len):
++		return false;
+ 	case offsetof(struct __sk_buff, sk):
+ 		if (type == BPF_WRITE || size != sizeof(__u64))
+ 			return false;
+@@ -4686,6 +4692,27 @@ static bool flow_dissector_is_valid_access(int off, int size,
+ 	return bpf_skb_is_valid_access(off, size, type, prog, info);
+ }
+ 
++static struct bpf_insn *bpf_convert_shinfo_access(const struct bpf_insn *si,
++						  struct bpf_insn *insn)
++{
++	/* si->dst_reg = skb_shinfo(SKB); */
++#ifdef NET_SKBUFF_DATA_USES_OFFSET
++	*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, end),
++			      BPF_REG_AX, si->src_reg,
++			      offsetof(struct sk_buff, end));
++	*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, head),
++			      si->dst_reg, si->src_reg,
++			      offsetof(struct sk_buff, head));
++	*insn++ = BPF_ALU64_REG(BPF_ADD, si->dst_reg, BPF_REG_AX);
++#else
++	*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, end),
++			      si->dst_reg, si->src_reg,
++			      offsetof(struct sk_buff, end));
++#endif
++
++	return insn;
++}
++
+ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
+ 				  const struct bpf_insn *si,
+ 				  struct bpf_insn *insn_buf,
+@@ -4988,6 +5015,22 @@ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
+ 		*insn++ = BPF_LDX_MEM(BPF_SIZEOF(void *), si->dst_reg,
+ 				      si->src_reg, off);
+ 		break;
++	case offsetof(struct __sk_buff, gso_segs):
++		insn = bpf_convert_shinfo_access(si, insn);
++		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct skb_shared_info, gso_segs),
++				      si->dst_reg, si->dst_reg,
++				      bpf_target_off(struct skb_shared_info,
++						     gso_segs, 2,
++						     target_size));
++		break;
++	case offsetof(struct __sk_buff, gso_size):
++		insn = bpf_convert_shinfo_access(si, insn);
++		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct skb_shared_info, gso_size),
++				      si->dst_reg, si->dst_reg,
++				      bpf_target_off(struct skb_shared_info,
++						     gso_size, 2,
++						     target_size));
++		break;
+ 	case offsetof(struct __sk_buff, sk):
+ 		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, sk),
+ 				      si->dst_reg, si->src_reg,

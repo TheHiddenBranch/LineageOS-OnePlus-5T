@@ -1,0 +1,17 @@
+Subject: [PATCH] Export the namespace providing the Power HAL runtime library
+
+libperfmgr is a shared dependency of the Lineage Power HAL. Its nested
+Soong namespace must be exported to Make for the vendor library to be installed.
+
+diff --git a/common.mk b/common.mk
+index 0993580e3b417093f08df6ffcee4e286b964445a..85ae9b0c1c6efd5cb3581f97ecaacd77c2cb67e4 100644
+--- a/common.mk
++++ b/common.mk
+@@ -362,6 +362,7 @@ PRODUCT_SOONG_NAMESPACES += \
+     $(LOCAL_PATH) \
+     hardware/google/interfaces \
+     hardware/google/pixel \
++    hardware/google/pixel/power-libperfmgr \
+     hardware/lineage/interfaces/power-libperfmgr \
+     hardware/oneplus \
+     hardware/qcom-caf/common/libqti-perfd-client

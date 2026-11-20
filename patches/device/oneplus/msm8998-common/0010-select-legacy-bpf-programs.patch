@@ -1,0 +1,16 @@
+Subject: [PATCH] Opt in to legacy BPF program selection
+
+diff --git a/common.mk b/common.mk
+index 0950873b48139185f45910a9842fb37ad2a72621..0993580e3b417093f08df6ffcee4e286b964445a 100644
+--- a/common.mk
++++ b/common.mk
+@@ -366,6 +366,9 @@ PRODUCT_SOONG_NAMESPACES += \
+     hardware/oneplus \
+     hardware/qcom-caf/common/libqti-perfd-client
+ 
++# Use the retained 5.4 BPF ABI programs with the downstream kernel backports.
++$(call soong_config_set_bool,netbpfload,legacy_kernel,true)
++
+ # Tetheroffload
+ PRODUCT_PACKAGES += \
+     ipacm \

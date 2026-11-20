@@ -1,0 +1,12 @@
+diff --git a/lib/Makefile b/lib/Makefile
+index b3110d624..030377330 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -309,6 +309,7 @@ $(obj)/test_fortify/%.log: $(src)/test_fortify/%.c \
+ 			   $(srctree)/include/linux/fortify-string.h \
+ 			   $(srctree)/scripts/test_fortify.sh \
+ 			   FORCE
++	$(Q)mkdir -p $(dir $@)
+ 	$(call if_changed,test_fortify)
+ 
+ quiet_cmd_gen_fortify_log = GEN     $@

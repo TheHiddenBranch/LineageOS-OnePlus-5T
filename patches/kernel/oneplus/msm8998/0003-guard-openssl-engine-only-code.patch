@@ -1,0 +1,44 @@
+diff --git a/scripts/extract-cert.c b/scripts/extract-cert.c
+index 23dec5893..babb4f60b 100644
+--- a/scripts/extract-cert.c
++++ b/scripts/extract-cert.c
+@@ -122,6 +122,7 @@ int main(int argc, char **argv)
+ 		fclose(f);
+ 		exit(0);
+ 	} else if (!strncmp(cert_src, "pkcs11:", 7)) {
++#if !defined(OPENSSL_NO_ENGINE) || CRYPTOGRAPHY_IS_LIBRESSL
+ 		ENGINE *e;
+ 		struct {
+ 			const char *cert_id;
+@@ -144,6 +145,9 @@ int main(int argc, char **argv)
+ 		ENGINE_ctrl_cmd(e, "LOAD_CERT_CTRL", 0, &parms, NULL, 1);
+ 		ERR(!parms.cert, "Get X.509 from PKCS#11");
+ 		write_cert(parms.cert);
++#else
++		err(1, "PKCS#11 certificates require OpenSSL ENGINE support");
++#endif
+ 	} else {
+ 		BIO *b;
+ 		X509 *x509;
+diff --git a/scripts/sign-file.c b/scripts/sign-file.c
+index 399f8f51c..7bbb9421f 100644
+--- a/scripts/sign-file.c
++++ b/scripts/sign-file.c
+@@ -147,6 +147,7 @@ static EVP_PKEY *read_private_key(const char *private_key_name)
+ 	EVP_PKEY *private_key;
+ 
+ 	if (!strncmp(private_key_name, "pkcs11:", 7)) {
++#if !defined(OPENSSL_NO_ENGINE) || CRYPTOGRAPHY_IS_LIBRESSL
+ 		ENGINE *e;
+ 
+ 		ENGINE_load_builtin_engines();
+@@ -163,6 +164,9 @@ static EVP_PKEY *read_private_key(const char *private_key_name)
+ 		private_key = ENGINE_load_private_key(e, private_key_name,
+ 						      NULL, NULL);
+ 		ERR(!private_key, "%s", private_key_name);
++#else
++		err(1, "PKCS#11 keys require OpenSSL ENGINE support");
++#endif
+ 	} else {
+ 		BIO *b;
+ 

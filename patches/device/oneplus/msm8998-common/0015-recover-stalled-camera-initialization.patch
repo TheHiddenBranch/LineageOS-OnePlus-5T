@@ -1,0 +1,19 @@
+From: Codex <codex@local.invalid>
+Subject: [PATCH] camera: enable a 20-second initialization deadline
+
+The legacy provider was observed running but absent from the HIDL
+service registry, leaving camera and torch unavailable until its
+process was restarted. Enable the opt-in initialization watchdog.
+
+--- a/vendor.prop
++++ b/vendor.prop
+@@ -80,6 +80,9 @@
+ persist.vendor.qcom.bluetooth.soc=cherokee
+ ro.vendor.bluetooth.wipower=false
+ 
++# Camera
++vendor.camera.provider24.init_timeout_ms=20000
++
+ # CNE
+ persist.vendor.cne.feature=1
+ 

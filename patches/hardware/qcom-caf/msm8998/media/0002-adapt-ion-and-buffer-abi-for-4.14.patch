@@ -1,0 +1,216 @@
+diff --git a/mm-video-v4l2/vidc/vdec/inc/omx_vdec.h b/mm-video-v4l2/vidc/vdec/inc/omx_vdec.h
+index de3a9c2..fc2412e 100644
+--- a/mm-video-v4l2/vidc/vdec/inc/omx_vdec.h
++++ b/mm-video-v4l2/vidc/vdec/inc/omx_vdec.h
+@@ -68,6 +68,7 @@ static ptrdiff_t x;
+ 
+ #ifdef USE_ION
+ #include <linux/msm_ion.h>
++#include "vidc_ion_compat.h"
+ //#include <binder/MemoryHeapIon.h>
+ //#else
+ #endif
+@@ -76,6 +77,11 @@ extern "C" {
+ #include <utils/Log.h>
+ }
+ #include <linux/videodev2.h>
++#ifdef _TARGET_KERNEL_VERSION_49_
++#define VIDC_BUF_DATA_CORRUPT V4L2_BUF_FLAG_DATA_CORRUPT
++#else
++#define VIDC_BUF_DATA_CORRUPT V4L2_QCOM_BUF_DATA_CORRUPT
++#endif
+ #include <poll.h>
+ #include "hevc_utils.h"
+ #define TIMEOUT 5000
+@@ -1359,10 +1365,10 @@ class omx_vdec: public qc_omx_component
+                 int pmem_fd[MAX_COUNT];
+                 OMX_ERRORTYPE cache_ops(unsigned int index, unsigned int cmd);
+                 inline OMX_ERRORTYPE cache_clean_buffer(unsigned int index) {
+-                    return cache_ops(index, ION_IOC_CLEAN_CACHES);
++                    return cache_ops(index, VIDC_CACHE_CLEAN);
+                 }
+                 OMX_ERRORTYPE cache_clean_invalidate_buffer(unsigned int index) {
+-                    return cache_ops(index, ION_IOC_CLEAN_INV_CACHES);
++                    return cache_ops(index, VIDC_CACHE_INVALIDATE);
+                 }
+         };
+ #if  defined (_MSM8960_) || defined (_MSM8974_)
+diff --git a/mm-video-v4l2/vidc/vdec/src/omx_vdec_v4l2.cpp b/mm-video-v4l2/vidc/vdec/src/omx_vdec_v4l2.cpp
+index 3380d77..88e2621 100644
+--- a/mm-video-v4l2/vidc/vdec/src/omx_vdec_v4l2.cpp
++++ b/mm-video-v4l2/vidc/vdec/src/omx_vdec_v4l2.cpp
+@@ -4113,6 +4113,8 @@ OMX_ERRORTYPE  omx_vdec::get_parameter(OMX_IN OMX_HANDLETYPE     hComp,
+                     case V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN:
+                         return OMX_ErrorUnsupportedIndex;
+ #endif
++                    default:
++                        return OMX_ErrorUnsupportedIndex;
+                 }
+              } else {
+                  eRet = OMX_ErrorUnsupportedIndex;
+@@ -9248,7 +9250,7 @@ int omx_vdec::async_message_process (void *context, void* message)
+                 omx->post_event ((unsigned)NULL, vdec_msg->status_code,\
+                         OMX_COMPONENT_GENERATE_HARDWARE_ERROR);
+             }
+-            if (v4l2_buf_ptr->flags & V4L2_QCOM_BUF_DATA_CORRUPT) {
++            if (v4l2_buf_ptr->flags & VIDC_BUF_DATA_CORRUPT) {
+                 omxhdr->nFlags |= OMX_BUFFERFLAG_DATACORRUPT;
+                 vdec_msg->status_code = VDEC_S_INPUT_BITSTREAM_ERR;
+             }
+@@ -9346,7 +9348,7 @@ int omx_vdec::async_message_process (void *context, void* message)
+                                OMX_COMPONENT_GENERATE_FTB);
+                        break;
+                    }
+-                   if (v4l2_buf_ptr->flags & V4L2_QCOM_BUF_DATA_CORRUPT) {
++                   if (v4l2_buf_ptr->flags & VIDC_BUF_DATA_CORRUPT) {
+                        omxhdr->nFlags |= OMX_BUFFERFLAG_DATACORRUPT;
+                    }
+ 
+@@ -13216,6 +13218,14 @@ OMX_ERRORTYPE omx_vdec::allocate_color_convert_buf::cache_ops(
+         return OMX_ErrorBadParameter;
+     }
+ 
++#if TARGET_ION_ABI_VERSION >= 2
++    struct dma_buf_sync sync = {};
++    sync.flags = cmd | DMA_BUF_SYNC_RW;
++    if (ioctl(op_buf_ion_info[index].fd_ion_data.fd, DMA_BUF_IOCTL_SYNC, &sync) < 0) {
++        DEBUG_PRINT_ERROR("DMA-BUF cache operation failed: %s", strerror(errno));
++        return OMX_ErrorUndefined;
++    }
++#else
+     struct ion_flush_data flush_data;
+     struct ion_custom_data custom_data;
+ 
+@@ -13230,16 +13240,17 @@ OMX_ERRORTYPE omx_vdec::allocate_color_convert_buf::cache_ops(
+     custom_data.arg = (unsigned long)&flush_data;
+ 
+     DEBUG_PRINT_LOW("Cache %s: fd=%d handle=%d va=%p size=%d",
+-            (cmd == ION_IOC_CLEAN_CACHES) ? "Clean" : "Invalidate",
++            (cmd == VIDC_CACHE_CLEAN) ? "Clean" : "Invalidate",
+             flush_data.fd, flush_data.handle, flush_data.vaddr,
+             flush_data.length);
+     int ret = ioctl(op_buf_ion_info[index].ion_device_fd, ION_IOC_CUSTOM, &custom_data);
+     if (ret < 0) {
+         DEBUG_PRINT_ERROR("Cache %s failed: %s\n",
+-                (cmd == ION_IOC_CLEAN_CACHES) ? "Clean" : "Invalidate",
++                (cmd == VIDC_CACHE_CLEAN) ? "Clean" : "Invalidate",
+                 strerror(errno));
+         return OMX_ErrorUndefined;
+     }
++#endif
+     return OMX_ErrorNone;
+ }
+ 
+@@ -13680,6 +13691,16 @@ void omx_vdec::prefetchNewBuffers(bool reconfig) {
+         return;
+     }
+ 
++#if TARGET_ION_ABI_VERSION >= 2
++    prefetch_size = 4096 * 16 * 2;
++    rc = vidc_ion_prefetch(ion_fd, prefetch_size, false);
++    if (!rc) {
++        m_pf_info.pf_size += prefetch_size;
++    } else {
++        DEBUG_PRINT_ERROR("ION prefetch failed: %s", strerror(errno));
++    }
++    close(ion_fd);
++#else
+     struct ion_custom_data *custom_data = (struct ion_custom_data*) malloc(sizeof(*custom_data));
+     struct ion_prefetch_data *prefetch_data = (struct ion_prefetch_data*) malloc(sizeof(*prefetch_data));
+     struct ion_prefetch_regions *regions = (struct ion_prefetch_regions*) malloc(sizeof(*regions));
+@@ -13712,6 +13733,7 @@ prefetch_exit:
+     free(regions);
+     free(prefetch_data);
+     free(custom_data);
++#endif
+ }
+ 
+ void omx_vdec::drainPrefetchedBuffers() {
+@@ -13723,6 +13745,17 @@ void omx_vdec::drainPrefetchedBuffers() {
+         return;
+     }
+ 
++#if TARGET_ION_ABI_VERSION >= 2
++    rc = vidc_ion_prefetch(ion_fd, m_pf_info.pf_size, true);
++    if (!rc) {
++        m_pf_info.pf_size = 0;
++        m_pf_info.pf_skip_count = 0;
++        m_pf_info.no_more_pf = false;
++    } else {
++        DEBUG_PRINT_ERROR("ION drain failed: %s", strerror(errno));
++    }
++    close(ion_fd);
++#else
+     struct ion_custom_data *custom_data = (struct ion_custom_data*) malloc(sizeof(*custom_data));
+     struct ion_prefetch_data *prefetch_data = (struct ion_prefetch_data*) malloc(sizeof(*prefetch_data));
+     struct ion_prefetch_regions *regions = (struct ion_prefetch_regions*) malloc(sizeof(*regions));
+@@ -13757,6 +13790,7 @@ drain_exit:
+     free(regions);
+     free(prefetch_data);
+     free(custom_data);
++#endif
+ }
+ 
+ 
+diff --git a/mm-video-v4l2/vidc/venc/inc/omx_video_common.h b/mm-video-v4l2/vidc/venc/inc/omx_video_common.h
+index 699e1b9..b412206 100644
+--- a/mm-video-v4l2/vidc/venc/inc/omx_video_common.h
++++ b/mm-video-v4l2/vidc/venc/inc/omx_video_common.h
+@@ -36,6 +36,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #include <stdio.h>
+ #ifdef USE_ION
+ #include <linux/msm_ion.h>
++#include "vidc_ion_compat.h"
+ #endif
+ 
+ #ifdef _ANDROID_
+diff --git a/mm-video-v4l2/vidc/common/inc/vidc_ion_compat.h b/mm-video-v4l2/vidc/common/inc/vidc_ion_compat.h
+new file mode 100644
+index 0000000..1b84c51
+--- /dev/null
++++ b/mm-video-v4l2/vidc/common/inc/vidc_ion_compat.h
+@@ -0,0 +1,44 @@
++// SPDX-License-Identifier: Apache-2.0
++#ifndef VIDC_ION_COMPAT_H
++#define VIDC_ION_COMPAT_H
++
++#include <linux/msm_ion.h>
++
++#if TARGET_ION_ABI_VERSION >= 2
++#include <linux/dma-buf.h>
++#include <linux/ion.h>
++#include <stdint.h>
++#include <sys/ioctl.h>
++
++// This vendor kernel enables CONFIG_ION_LEGACY and handles these requests in
++// ion-ioctl.c. Use its old allocation layout and ioctl, not the ABI v2 layout.
++#define ion_allocation_data ion_old_allocation_data
++#undef ION_IOC_ALLOC
++#define ION_IOC_ALLOC ION_OLD_IOC_ALLOC
++#define ION_IOC_FREE _IOWR(ION_IOC_MAGIC, 1, struct ion_handle_data)
++#define ION_IOC_MAP _IOWR(ION_IOC_MAGIC, 2, struct ion_fd_data)
++#define ION_IOC_IMPORT _IOWR(ION_IOC_MAGIC, 5, struct ion_fd_data)
++#define ION_SECURE ION_FLAG_SECURE
++#define ION_IOMMU_HEAP_ID ION_SYSTEM_HEAP_ID
++
++// These are internal cache-operation selectors, sent through DMA_BUF_IOCTL_SYNC.
++#define VIDC_CACHE_CLEAN DMA_BUF_SYNC_END
++#define VIDC_CACHE_INVALIDATE DMA_BUF_SYNC_START
++
++static inline int vidc_ion_prefetch(int fd, uint64_t size, bool drain) {
++    struct ion_prefetch_regions region = {};
++    region.sizes = (uint64_t)(uintptr_t)&size;
++    region.vmid = ION_FLAG_CP_PIXEL;
++    region.nr_sizes = 1;
++    struct ion_prefetch_data data = {};
++    data.regions = (uint64_t)(uintptr_t)&region;
++    data.heap_id = ION_HEAP(ION_SECURE_HEAP_ID);
++    data.nr_regions = 1;
++    return ioctl(fd, drain ? ION_IOC_DRAIN : ION_IOC_PREFETCH, &data);
++}
++#else
++#define VIDC_CACHE_CLEAN ION_IOC_CLEAN_CACHES
++#define VIDC_CACHE_INVALIDATE ION_IOC_CLEAN_INV_CACHES
++#endif
++
++#endif  // VIDC_ION_COMPAT_H

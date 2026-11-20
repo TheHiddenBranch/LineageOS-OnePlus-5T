@@ -1,0 +1,12 @@
+diff --git a/lib/Makefile b/lib/Makefile
+index 030377330..1379c6ecc 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -298,6 +298,7 @@ TEST_FORTIFY_LOG = test_fortify.log
+ quiet_cmd_test_fortify = TEST    $@
+       cmd_test_fortify = $(CONFIG_SHELL) $(srctree)/scripts/test_fortify.sh \
+ 			$< $@ "$(NM)" $(CC) $(c_flags) \
++			-fbuiltin \
+ 			$(call cc-disable-warning,fortify-source) \
+ 			-DKBUILD_EXTRA_WARN1
+ 

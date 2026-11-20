@@ -1,0 +1,62 @@
+Subject: [PATCH] Provide metadata storage before platform flag initialization
+
+Use a persistent cache subdirectory for metadata on this partition layout.
+Run in system init after device fs mounting and before post-fs Aconfig setup.
+
+diff --git a/BoardConfigCommon.mk b/BoardConfigCommon.mk
+index ba7586c..ae139b4 100644
+--- a/BoardConfigCommon.mk
++++ b/BoardConfigCommon.mk
+@@ -102,6 +102,7 @@ TARGET_RELEASETOOLS_EXTENSIONS := $(PLATFORM_PATH)/releasetools
+ ENABLE_VENDOR_RIL_SERVICE := true
+ 
+ # Root
++BOARD_ROOT_EXTRA_FOLDERS += metadata
+ BOARD_ROOT_EXTRA_SYMLINKS += /mnt/vendor/persist:/persist
+ 
+ # Security
+diff --git a/common.mk b/common.mk
+index 85ae9b0..e937131 100644
+--- a/common.mk
++++ b/common.mk
+@@ -29,6 +29,7 @@ PRODUCT_ENFORCE_RRO_TARGETS += *
+ 
+ # Partitions
+ PRODUCT_PACKAGES += \
++    init.msm8998.metadata.rc \
+     vendor_bt_firmware_mountpoint \
+     vendor_dsp_mountpoint \
+     vendor_firmware_mnt_mountpoint
+diff --git a/rootdir/Android.bp b/rootdir/Android.bp
+index 829c3e8..8c2af1b 100644
+--- a/rootdir/Android.bp
++++ b/rootdir/Android.bp
+@@ -5,6 +5,12 @@
+ 
+ // Init configuration files
+ 
++prebuilt_etc {
++    name: "init.msm8998.metadata.rc",
++    src: "etc/init.msm8998.metadata.rc",
++    sub_dir: "init",
++}
++
+ prebuilt_etc {
+     name: "fstab.qcom",
+     src: "etc/fstab.qcom",
+diff --git a/rootdir/etc/init.msm8998.metadata.rc b/rootdir/etc/init.msm8998.metadata.rc
+new file mode 100644
+index 0000000..4033d32
+--- /dev/null
++++ b/rootdir/etc/init.msm8998.metadata.rc
+@@ -0,0 +1,10 @@
++# SPDX-FileCopyrightText: 2026 The LineageOS Project
++# SPDX-License-Identifier: Apache-2.0
++
++# No dedicated metadata partition exists. Cache is mounted by the imported
++# device fs action before this system-side action. Prepare metadata before
++# post-fs initializes Aconfig and before encrypted userdata is mounted.
++on fs
++    mkdir /cache/metadata 0771 root system
++    mount none /cache/metadata /metadata bind
++    restorecon_recursive /metadata

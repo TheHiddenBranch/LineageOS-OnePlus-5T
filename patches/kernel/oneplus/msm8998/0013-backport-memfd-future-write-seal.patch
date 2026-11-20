@@ -1,0 +1,87 @@
+From: Codex <codex@local.invalid>
+Subject: [PATCH] mm: backport memfd future-write sealing with private COW fix
+
+Adapt upstream ab3948f58ff841e51feb845720624665ef5b7ef3 and
+05d351102dbe4e103d6bdac18b1122cd3cd04925 to the 4.14 shmem-based
+memfd implementation. Android 17 bitmap parceling requests this seal.
+Preserve existing shared writers while rejecting new shared writers,
+write syscalls and hole punching. Private COW mappings retain VM_MAYWRITE.
+This kernel does not support sealing hugetlb memfds, which remains unchanged.
+
+diff --git a/include/uapi/linux/fcntl.h b/include/uapi/linux/fcntl.h
+index 6448cdd9a350d3a0c6513c7a76aad29a68689bd4..a2f8658f1c555235de9fb4581acb113339981bdf 100644
+--- a/include/uapi/linux/fcntl.h
++++ b/include/uapi/linux/fcntl.h
+@@ -41,6 +41,7 @@
+ #define F_SEAL_SHRINK	0x0002	/* prevent file from shrinking */
+ #define F_SEAL_GROW	0x0004	/* prevent file from growing */
+ #define F_SEAL_WRITE	0x0008	/* prevent writes */
++#define F_SEAL_FUTURE_WRITE	0x0010  /* prevent future writes while mapped */
+ /* (1U << 31) is reserved for signed error codes */
+ 
+ /*
+diff --git a/mm/shmem.c b/mm/shmem.c
+index fdac58cd4d17f7639fd312e5e331c34c13748778..46c19dc216b62a3ce4f6c86f8fab4a16100af2d7 100644
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -2169,6 +2169,21 @@ int shmem_lock(struct file *file, int lock, struct user_struct *user)
+ 
+ static int shmem_mmap(struct file *file, struct vm_area_struct *vma)
+ {
++	struct shmem_inode_info *info = SHMEM_I(file_inode(file));
++
++	if (info->seals & F_SEAL_FUTURE_WRITE) {
++		/* New writable shared mappings must not bypass the seal. */
++		if ((vma->vm_flags & VM_SHARED) && (vma->vm_flags & VM_WRITE))
++			return -EPERM;
++
++		/*
++		 * Prevent mprotect from making a new shared mapping writable.
++		 * Keep VM_MAYWRITE on private mappings for fork-time COW.
++		 */
++		if (vma->vm_flags & VM_SHARED)
++			vma->vm_flags &= ~VM_MAYWRITE;
++	}
++
+ 	file_accessed(file);
+ 	vma->vm_ops = &shmem_vm_ops;
+ 	if (IS_ENABLED(CONFIG_TRANSPARENT_HUGE_PAGECACHE) &&
+@@ -2423,8 +2438,9 @@ shmem_write_begin(struct file *file, struct address_space *mapping,
+ 	pgoff_t index = pos >> PAGE_SHIFT;
+ 
+ 	/* i_mutex is held by caller */
+-	if (unlikely(info->seals & (F_SEAL_WRITE | F_SEAL_GROW))) {
+-		if (info->seals & F_SEAL_WRITE)
++	if (unlikely(info->seals & (F_SEAL_GROW |
++				   F_SEAL_WRITE | F_SEAL_FUTURE_WRITE))) {
++		if (info->seals & (F_SEAL_WRITE | F_SEAL_FUTURE_WRITE))
+ 			return -EPERM;
+ 		if ((info->seals & F_SEAL_GROW) && pos + len > inode->i_size)
+ 			return -EPERM;
+@@ -2784,7 +2800,8 @@ static int shmem_wait_for_pins(struct address_space *mapping)
+ #define F_ALL_SEALS (F_SEAL_SEAL | \
+ 		     F_SEAL_SHRINK | \
+ 		     F_SEAL_GROW | \
+-		     F_SEAL_WRITE)
++		     F_SEAL_WRITE | \
++		     F_SEAL_FUTURE_WRITE)
+ 
+ int shmem_add_seals(struct file *file, unsigned int seals)
+ {
+@@ -2808,6 +2825,7 @@ int shmem_add_seals(struct file *file, unsigned int seals)
+ 	 *   SEAL_SHRINK: Prevent the file from shrinking
+ 	 *   SEAL_GROW: Prevent the file from growing
+ 	 *   SEAL_WRITE: Prevent write access to the file
++	 *   SEAL_FUTURE_WRITE: Prevent writes except through existing mappings
+ 	 *
+ 	 * As we don't require any trust relationship between two parties, we
+ 	 * must prevent seals from being removed. Therefore, sealing a file
+@@ -2911,7 +2929,7 @@ static long shmem_fallocate(struct file *file, int mode, loff_t offset,
+ 		DECLARE_WAIT_QUEUE_HEAD_ONSTACK(shmem_falloc_waitq);
+ 
+ 		/* protected by i_mutex */
+-		if (info->seals & F_SEAL_WRITE) {
++		if (info->seals & (F_SEAL_WRITE | F_SEAL_FUTURE_WRITE)) {
+ 			error = -EPERM;
+ 			goto out;
+ 		}

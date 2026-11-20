@@ -1,0 +1,411 @@
+diff --git a/common.mk b/common.mk
+index 95490f1..9451cf1 100644
+--- a/common.mk
++++ b/common.mk
+@@ -245,7 +245,7 @@ $(call soong_config_set,lineage_health,charging_control_charging_path,/sys/class
+ 
+ # LiveDisplay
+ PRODUCT_PACKAGES += \
+-    vendor.lineage.livedisplay@2.0-service.oneplus_msm8998
++    vendor.lineage.livedisplay-service.oneplus_msm8998
+ 
+ # Media
+ PRODUCT_COPY_FILES += \
+diff --git a/livedisplay/Android.bp b/livedisplay/Android.bp
+index 8dd0a67..1e40cc3 100644
+--- a/livedisplay/Android.bp
++++ b/livedisplay/Android.bp
+@@ -4,28 +4,27 @@
+ //
+ 
+ cc_binary {
+-    name: "vendor.lineage.livedisplay@2.0-service.oneplus_msm8998",
+-    defaults: ["hidl_defaults"],
+-    init_rc: ["vendor.lineage.livedisplay@2.0-service.oneplus_msm8998.rc"],
+-    vintf_fragments: ["vendor.lineage.livedisplay@2.0-service.oneplus_msm8998.xml"],
++    name: "vendor.lineage.livedisplay-service.oneplus_msm8998",
++    init_rc: ["vendor.lineage.livedisplay-service.oneplus_msm8998.rc"],
++    vintf_fragments: ["vendor.lineage.livedisplay-service.oneplus_msm8998.xml"],
+     relative_install_path: "hw",
+     srcs: [
+-        ":vendor.lineage.livedisplay@2.0-sdm-pa",
+-        ":vendor.lineage.livedisplay@2.0-sdm-utils",
+-        ":vendor.lineage.livedisplay@2.0-sysfs-sre",
++        ":vendor.lineage.livedisplay-sdm-pa",
++        ":vendor.lineage.livedisplay-sdm-utils",
++        ":vendor.lineage.livedisplay-sysfs-se",
+         "DisplayModes.cpp",
+         "service.cpp",
+     ],
+     shared_libs: [
+         "libbase",
+         "libbinder",
+-        "libhidlbase",
++        "libbinder_ndk",
+         "libutils",
+-        "vendor.lineage.livedisplay@2.0",
++        "vendor.lineage.livedisplay-V1-ndk",
+     ],
+     header_libs: [
+-        "vendor.lineage.livedisplay@2.0-sdm-headers",
+-        "vendor.lineage.livedisplay@2.0-sysfs-headers",
++        "vendor.lineage.livedisplay-sdm-headers",
++        "vendor.lineage.livedisplay-sysfs-headers",
+     ],
+     proprietary: true,
+ }
+diff --git a/livedisplay/DisplayModes.cpp b/livedisplay/DisplayModes.cpp
+index 606eb10..255fef3 100644
+--- a/livedisplay/DisplayModes.cpp
++++ b/livedisplay/DisplayModes.cpp
+@@ -11,10 +11,10 @@
+ 
+ #include "DisplayModes.h"
+ 
++namespace aidl {
+ namespace vendor {
+ namespace lineage {
+ namespace livedisplay {
+-namespace V2_0 {
+ namespace implementation {
+ 
+ static const std::string kModeBasePath = "/sys/devices/virtual/graphics/fb0/preset";
+@@ -34,11 +34,10 @@ DisplayModes::DisplayModes() : mCurrentModeId(0), mDefaultModeId(0) {
+     setDisplayMode(mDefaultModeId, false);
+ }
+ 
+-// Methods from ::vendor::lineage::livedisplay::V2_0::IDisplayModes follow.
+-Return<void> DisplayModes::getDisplayModes(getDisplayModes_cb resultCb) {
+-    std::vector<V2_0::DisplayMode> modes;
++ndk::ScopedAStatus DisplayModes::getDisplayModes(std::vector<DisplayMode>* result) {
++    result->clear();
+     std::ifstream numFile(kAvailableModesPath);
+-    int32_t maxModeCount;
++    int32_t maxModeCount = 0;
+ 
+     numFile >> maxModeCount;
+     if (numFile.fail()) {
+@@ -46,33 +45,38 @@ Return<void> DisplayModes::getDisplayModes(getDisplayModes_cb resultCb) {
+     }
+     if (maxModeCount > 0) {
+         for (const auto& entry : kModeMap) {
+-            modes.push_back({entry.first, entry.second});
++            DisplayMode mode;
++            mode.id = entry.first;
++            mode.name = entry.second;
++            result->push_back(mode);
+             if (entry.first == maxModeCount - 1) break;
+         }
+     }
+-    resultCb(modes);
+-    return Void();
++    return ndk::ScopedAStatus::ok();
+ }
+ 
+-Return<void> DisplayModes::getCurrentDisplayMode(getCurrentDisplayMode_cb resultCb) {
+-    resultCb({mCurrentModeId, kModeMap.at(mCurrentModeId)});
+-    return Void();
++ndk::ScopedAStatus DisplayModes::getCurrentDisplayMode(DisplayMode* result) {
++    result->id = mCurrentModeId;
++    result->name = kModeMap.at(mCurrentModeId);
++    return ndk::ScopedAStatus::ok();
+ }
+ 
+-Return<void> DisplayModes::getDefaultDisplayMode(getDefaultDisplayMode_cb resultCb) {
+-    resultCb({mDefaultModeId, kModeMap.at(mDefaultModeId)});
+-    return Void();
++ndk::ScopedAStatus DisplayModes::getDefaultDisplayMode(DisplayMode* result) {
++    result->id = mDefaultModeId;
++    result->name = kModeMap.at(mDefaultModeId);
++    return ndk::ScopedAStatus::ok();
+ }
+ 
+-Return<bool> DisplayModes::setDisplayMode(int32_t modeID, bool makeDefault) {
++ndk::ScopedAStatus DisplayModes::setDisplayMode(int32_t modeID, bool makeDefault) {
+     const auto iter = kModeMap.find(modeID);
+     if (iter == kModeMap.end()) {
+-        return false;
++        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+     }
+     std::ofstream file(kModeBasePath);
+     file << modeID;
+     if (file.fail()) {
+         LOG(ERROR) << "Failed to write to " << (kModeBasePath);
++        return ndk::ScopedAStatus::fromExceptionCode(EX_SERVICE_SPECIFIC);
+     }
+     mCurrentModeId = iter->first;
+     if (makeDefault) {
+@@ -85,11 +89,11 @@ Return<bool> DisplayModes::setDisplayMode(int32_t modeID, bool makeDefault) {
+     if (mOnDisplayModeSet) {
+         mOnDisplayModeSet();
+     }
+-    return true;
++    return ndk::ScopedAStatus::ok();
+ }
+ 
+ }  // namespace implementation
+-}  // namespace V2_0
+ }  // namespace livedisplay
+ }  // namespace lineage
+ }  // namespace vendor
++}  // namespace aidl
+diff --git a/livedisplay/DisplayModes.h b/livedisplay/DisplayModes.h
+index 27d2023..3b700a9 100644
+--- a/livedisplay/DisplayModes.h
++++ b/livedisplay/DisplayModes.h
+@@ -4,23 +4,22 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#ifndef VENDOR_LINEAGE_LIVEDISPLAY_V2_0_DISPLAYMODES_H
+-#define VENDOR_LINEAGE_LIVEDISPLAY_V2_0_DISPLAYMODES_H
++#ifndef VENDOR_LINEAGE_LIVEDISPLAY_DISPLAYMODES_H
++#define VENDOR_LINEAGE_LIVEDISPLAY_DISPLAYMODES_H
+ 
+-#include <vendor/lineage/livedisplay/2.0/IDisplayModes.h>
++#include <aidl/vendor/lineage/livedisplay/BnDisplayModes.h>
++#include <functional>
+ #include <map>
++#include <string>
++#include <vector>
+ 
++namespace aidl {
+ namespace vendor {
+ namespace lineage {
+ namespace livedisplay {
+-namespace V2_0 {
+ namespace implementation {
+ 
+-using ::android::sp;
+-using ::android::hardware::Return;
+-using ::android::hardware::Void;
+-
+-class DisplayModes : public IDisplayModes {
++class DisplayModes : public BnDisplayModes {
+   public:
+     DisplayModes();
+ 
+@@ -29,11 +28,10 @@ class DisplayModes : public IDisplayModes {
+         mOnDisplayModeSet = callback;
+     }
+ 
+-    // Methods from ::vendor::lineage::livedisplay::V2_0::IDisplayModes follow.
+-    Return<void> getDisplayModes(getDisplayModes_cb resultCb) override;
+-    Return<void> getCurrentDisplayMode(getCurrentDisplayMode_cb resultCb) override;
+-    Return<void> getDefaultDisplayMode(getDefaultDisplayMode_cb ResultCb) override;
+-    Return<bool> setDisplayMode(int32_t modeID, bool makeDefault) override;
++    ndk::ScopedAStatus getDisplayModes(std::vector<DisplayMode>* result) override;
++    ndk::ScopedAStatus getCurrentDisplayMode(DisplayMode* result) override;
++    ndk::ScopedAStatus getDefaultDisplayMode(DisplayMode* result) override;
++    ndk::ScopedAStatus setDisplayMode(int32_t modeID, bool makeDefault) override;
+ 
+   private:
+     static const std::map<int32_t, std::string> kModeMap;
+@@ -43,9 +41,9 @@ class DisplayModes : public IDisplayModes {
+ };
+ 
+ }  // namespace implementation
+-}  // namespace V2_0
+ }  // namespace livedisplay
+ }  // namespace lineage
+ }  // namespace vendor
++}  // namespace aidl
+ 
+-#endif  // VENDOR_LINEAGE_LIVEDISPLAY_V2_0_DISPLAYMODES_H
++#endif  // VENDOR_LINEAGE_LIVEDISPLAY_DISPLAYMODES_H
+diff --git a/livedisplay/service.cpp b/livedisplay/service.cpp
+index 15cfec5..d229176 100644
+--- a/livedisplay/service.cpp
++++ b/livedisplay/service.cpp
+@@ -4,52 +4,47 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#define LOG_TAG "vendor.lineage.livedisplay@2.0-service.oneplus_msm8998"
++#define LOG_TAG "vendor.lineage.livedisplay-service.oneplus_msm8998"
+ 
+ #include <android-base/logging.h>
++#include <android/binder_manager.h>
++#include <android/binder_process.h>
+ #include <binder/ProcessState.h>
+-#include <hidl/HidlTransportSupport.h>
+ #include <livedisplay/sdm/PictureAdjustment.h>
+ #include <livedisplay/sysfs/SunlightEnhancement.h>
+ 
+ #include "DisplayModes.h"
+ 
+-using ::vendor::lineage::livedisplay::V2_0::IDisplayModes;
+-using ::vendor::lineage::livedisplay::V2_0::IPictureAdjustment;
+-using ::vendor::lineage::livedisplay::V2_0::ISunlightEnhancement;
+-using ::vendor::lineage::livedisplay::V2_0::implementation::DisplayModes;
+-using ::vendor::lineage::livedisplay::V2_0::sdm::PictureAdjustment;
+-using ::vendor::lineage::livedisplay::V2_0::sdm::SDMController;
+-using ::vendor::lineage::livedisplay::V2_0::sysfs::SunlightEnhancement;
++using ::aidl::vendor::lineage::livedisplay::implementation::DisplayModes;
++using ::aidl::vendor::lineage::livedisplay::sdm::PictureAdjustment;
++using ::aidl::vendor::lineage::livedisplay::sdm::SDMController;
++using ::aidl::vendor::lineage::livedisplay::sysfs::SunlightEnhancement;
+ 
+ int main() {
++    android::ProcessState::self()->setThreadPoolMaxThreadCount(1);
++    android::ProcessState::self()->startThreadPool();
++    ABinderProcess_setThreadPoolMaxThreadCount(0);
++
+     std::shared_ptr<SDMController> controller = std::make_shared<SDMController>();
+-    android::sp<IDisplayModes> modesService = new DisplayModes();
+-    android::sp<IPictureAdjustment> paService = new PictureAdjustment(controller);
+-    android::sp<ISunlightEnhancement> seService = new SunlightEnhancement();
++    auto modesService = ndk::SharedRefBase::make<DisplayModes>();
++    auto paService = ndk::SharedRefBase::make<PictureAdjustment>(controller);
++    auto seService = ndk::SharedRefBase::make<SunlightEnhancement>();
+ 
+     LOG(DEBUG) << "LiveDisplay HAL service is starting.";
+ 
+-    android::hardware::configureRpcThreadpool(1 /*threads*/, true /*callerWillJoin*/);
+-
+-    if (modesService->registerAsService() != android::OK) {
+-        LOG(ERROR) << "Cannot register display modes HAL service.";
+-        return 1;
+-    }
+-
+-    if (paService->registerAsService() != android::OK) {
+-        LOG(ERROR) << "Cannot register picture adjustment HAL service.";
+-        return 1;
+-    }
+-
+-    if (seService->registerAsService() != android::OK) {
+-        LOG(ERROR) << "Cannot register sunlight enhancement HAL service.";
+-        return 1;
+-    }
++    const std::string modesInstance = std::string(DisplayModes::descriptor) + "/default";
++    CHECK_EQ(AServiceManager_addService(modesService->asBinder().get(), modesInstance.c_str()),
++             STATUS_OK);
++    const std::string paInstance = std::string(PictureAdjustment::descriptor) + "/default";
++    CHECK_EQ(AServiceManager_addService(paService->asBinder().get(), paInstance.c_str()),
++             STATUS_OK);
++    const std::string seInstance = std::string(SunlightEnhancement::descriptor) + "/default";
++    CHECK_EQ(AServiceManager_addService(seService->asBinder().get(), seInstance.c_str()),
++             STATUS_OK);
+ 
+     LOG(INFO) << "LiveDisplay HAL service is ready.";
+ 
+-    android::hardware::joinRpcThreadpool();
++    ABinderProcess_joinThreadPool();
+ 
+     LOG(ERROR) << "LiveDisplay HAL service failed to join thread pool.";
+     return 1;
+diff --git a/livedisplay/vendor.lineage.livedisplay@2.0-service.oneplus_msm8998.rc b/livedisplay/vendor.lineage.livedisplay@2.0-service.oneplus_msm8998.rc
+deleted file mode 100644
+index f62e4da..0000000
+--- a/livedisplay/vendor.lineage.livedisplay@2.0-service.oneplus_msm8998.rc
++++ /dev/null
+@@ -1,13 +0,0 @@
+-on init
+-    chown system graphics /sys/devices/virtual/graphics/fb0/hbm
+-    chown system graphics /sys/devices/virtual/graphics/fb0/preset
+-    chmod 0660 /sys/devices/virtual/graphics/fb0/hbm
+-    chmod 0660 /sys/devices/virtual/graphics/fb0/preset
+-
+-on post-fs-data
+-    mkdir /data/vendor/display/ 0770 system graphics
+-
+-service vendor.livedisplay-hal-2-0 /vendor/bin/hw/vendor.lineage.livedisplay@2.0-service.oneplus_msm8998
+-    class late_start
+-    user system
+-    group system
+diff --git a/livedisplay/vendor.lineage.livedisplay@2.0-service.oneplus_msm8998.xml b/livedisplay/vendor.lineage.livedisplay@2.0-service.oneplus_msm8998.xml
+deleted file mode 100644
+index ce795d0..0000000
+--- a/livedisplay/vendor.lineage.livedisplay@2.0-service.oneplus_msm8998.xml
++++ /dev/null
+@@ -1,19 +0,0 @@
+-<manifest version="1.0" type="device">
+-    <hal format="hidl">
+-        <name>vendor.lineage.livedisplay</name>
+-        <transport>hwbinder</transport>
+-        <version>2.0</version>
+-        <interface>
+-            <name>IDisplayModes</name>
+-            <instance>default</instance>
+-        </interface>
+-        <interface>
+-            <name>IPictureAdjustment</name>
+-            <instance>default</instance>
+-        </interface>
+-        <interface>
+-            <name>ISunlightEnhancement</name>
+-            <instance>default</instance>
+-        </interface>
+-    </hal>
+-</manifest>
+\ No newline at end of file
+diff --git a/sepolicy/vendor/file_contexts b/sepolicy/vendor/file_contexts
+index 5a4eadd..7c2645e 100644
+--- a/sepolicy/vendor/file_contexts
++++ b/sepolicy/vendor/file_contexts
+@@ -15,7 +15,7 @@
+ # HALs
+ /(vendor|system/vendor)/bin/hw/android\.hardware\.biometrics\.fingerprint@2\.1-service-custom    u:object_r:hal_fingerprint_default_exec:s0
+ /(vendor|system/vendor)/bin/hw/android\.hardware\.power-service\.oneplus-libperfmgr              u:object_r:hal_power_default_exec:s0
+-/(vendor|system/vendor)/bin/hw/vendor\.lineage\.livedisplay@2\.0-service\.oneplus_msm8998        u:object_r:hal_livedisplay_oneplus_msm8998_exec:s0
++/(vendor|system/vendor)/bin/hw/vendor\.lineage\.livedisplay-service\.oneplus_msm8998        u:object_r:hal_livedisplay_oneplus_msm8998_exec:s0
+ /(vendor|system/vendor)/bin/hw/vendor\.oneplus\.camera\.CameraHIDL@1\.0-service                  u:object_r:hal_cameraHIDL_default_exec:s0
+ /(vendor|system/vendor)/bin/hw/vendor\.oneplus\.hardware\.drmkey@1\.0-service                    u:object_r:hal_drm_default_exec:s0
+ /(vendor|system/vendor)/bin/hw/vendor\.oneplus\.hardware\.ifaa@2\.0-service                      u:object_r:hal_ifaa_default_exec:s0
+diff --git a/sepolicy/vendor/hal_livedisplay_oneplus_msm8998.te b/sepolicy/vendor/hal_livedisplay_oneplus_msm8998.te
+index af67407..8cad00d 100644
+--- a/sepolicy/vendor/hal_livedisplay_oneplus_msm8998.te
++++ b/sepolicy/vendor/hal_livedisplay_oneplus_msm8998.te
+@@ -5,6 +5,9 @@ init_daemon_domain(hal_livedisplay_oneplus_msm8998)
+ 
+ hal_server_domain(hal_livedisplay_oneplus_msm8998, hal_lineage_livedisplay)
+ 
++# Register the AIDL interfaces with the framework service manager.
++binder_call(hal_livedisplay_oneplus_msm8998, servicemanager)
++
+ # Allow LiveDisplay to use vendor-binder service
+ vndbinder_use(hal_livedisplay_oneplus_msm8998)
+ allow hal_livedisplay_oneplus_msm8998 qdisplay_service:service_manager find;
+diff --git a/livedisplay/vendor.lineage.livedisplay-service.oneplus_msm8998.rc b/livedisplay/vendor.lineage.livedisplay-service.oneplus_msm8998.rc
+new file mode 100644
+index 0000000..4ef6f5d
+--- /dev/null
++++ b/livedisplay/vendor.lineage.livedisplay-service.oneplus_msm8998.rc
+@@ -0,0 +1,13 @@
++on init
++    chown system graphics /sys/devices/virtual/graphics/fb0/hbm
++    chown system graphics /sys/devices/virtual/graphics/fb0/preset
++    chmod 0660 /sys/devices/virtual/graphics/fb0/hbm
++    chmod 0660 /sys/devices/virtual/graphics/fb0/preset
++
++on post-fs-data
++    mkdir /data/vendor/display/ 0770 system graphics
++
++service vendor.livedisplay-hal /vendor/bin/hw/vendor.lineage.livedisplay-service.oneplus_msm8998
++    class late_start
++    user system
++    group system
+diff --git a/livedisplay/vendor.lineage.livedisplay-service.oneplus_msm8998.xml b/livedisplay/vendor.lineage.livedisplay-service.oneplus_msm8998.xml
+new file mode 100644
+index 0000000..cbe7e2c
+--- /dev/null
++++ b/livedisplay/vendor.lineage.livedisplay-service.oneplus_msm8998.xml
+@@ -0,0 +1,18 @@
++<manifest version="1.0" type="device">
++    <hal format="aidl">
++        <name>vendor.lineage.livedisplay</name>
++        <version>1</version>
++        <interface>
++            <name>IDisplayModes</name>
++            <instance>default</instance>
++        </interface>
++        <interface>
++            <name>IPictureAdjustment</name>
++            <instance>default</instance>
++        </interface>
++        <interface>
++            <name>ISunlightEnhancement</name>
++            <instance>default</instance>
++        </interface>
++    </hal>
++</manifest>

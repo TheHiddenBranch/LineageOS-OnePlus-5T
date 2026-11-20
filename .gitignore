@@ -1,0 +1,15 @@
+# Proprietary vendor files and reference repositories
+/external/
+
+# Local logs
+/logs/
+
+# Android checkout and generated build output
+/src/
+
+# Temporary files
+/tmp/
+
+# Cache or other tmp files
+__pycache__/
+/tools/*.py[cod]

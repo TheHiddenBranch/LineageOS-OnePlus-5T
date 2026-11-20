@@ -1,0 +1,12 @@
+diff --git a/arch/arm64/configs/msm8998_oneplus_android_defconfig b/arch/arm64/configs/msm8998_oneplus_android_defconfig
+index 39f69d50e..e87275e70 100644
+--- a/arch/arm64/configs/msm8998_oneplus_android_defconfig
++++ b/arch/arm64/configs/msm8998_oneplus_android_defconfig
+@@ -31,6 +31,7 @@ CONFIG_NAMESPACES=y
+ CONFIG_USER_NS=y
+ CONFIG_DEFAULT_USE_ENERGY_AWARE=y
+ CONFIG_BLK_DEV_INITRD=y
++CONFIG_INITRAMFS_IGNORE_SKIP_FLAG=y
+ # CONFIG_RD_BZIP2 is not set
+ # CONFIG_RD_LZMA is not set
+ # CONFIG_RD_XZ is not set

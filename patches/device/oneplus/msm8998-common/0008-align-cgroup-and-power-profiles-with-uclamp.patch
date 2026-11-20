@@ -1,0 +1,83 @@
+diff --git a/common.mk b/common.mk
+index 956c16f..0a02c74 100644
+--- a/common.mk
++++ b/common.mk
+@@ -301,9 +301,7 @@ PRODUCT_PACKAGES += \
+     libqti-perfd-client
+ 
+ PRODUCT_COPY_FILES += \
+-    $(LOCAL_PATH)/configs/powerhint.json:$(TARGET_COPY_OUT_VENDOR)/etc/powerhint.json \
+-    system/core/libprocessgroup/profiles/cgroups_28.json:$(TARGET_COPY_OUT_VENDOR)/etc/cgroups.json \
+-    system/core/libprocessgroup/profiles/task_profiles_28.json:$(TARGET_COPY_OUT_VENDOR)/etc/task_profiles.json
++    $(LOCAL_PATH)/configs/powerhint.json:$(TARGET_COPY_OUT_VENDOR)/etc/powerhint.json
+ 
+ # Protobuf
+ PRODUCT_PACKAGES += \
+diff --git a/configs/powerhint.json b/configs/powerhint.json
+index 9ea10c6..3140938 100644
+--- a/configs/powerhint.json
++++ b/configs/powerhint.json
+@@ -82,12 +82,13 @@
+       "ResetOnInit": true
+     },
+     {
+-      "Name": "TASchedtuneBoost",
+-      "Path": "/dev/stune/top-app/schedtune.boost",
++      "Name": "UclampTAMin",
++      "Path": "/dev/cpuctl/top-app/cpu.uclamp.min",
+       "Values": [
+-        "50",
+-        "10"
++        "0",
++        "78"
+       ],
++      "DefaultIndex": 0,
+       "ResetOnInit": true
+     },
+     {
+@@ -336,9 +337,9 @@
+     },
+     {
+       "PowerHint": "INTERACTION",
+-      "Node": "TASchedtuneBoost",
++      "Node": "UclampTAMin",
+       "Duration": 0,
+-      "Value": "50"
++      "Value": "78"
+     },
+     {
+       "PowerHint": "INTERACTION",
+diff --git a/rootdir/etc/init.qcom.rc b/rootdir/etc/init.qcom.rc
+index 73f4ffd..1c57dce 100644
+--- a/rootdir/etc/init.qcom.rc
++++ b/rootdir/etc/init.qcom.rc
+@@ -73,14 +73,10 @@ on init
+     write /sys/devices/system/cpu/cpufreq/policy4/schedutil/up_rate_limit_us 500
+     write /sys/devices/system/cpu/cpufreq/policy4/schedutil/down_rate_limit_us 20000
+ 
+-    # Set boottime stune value
+-    write /dev/stune/schedtune.prefer_idle 1
+-    write /dev/stune/schedtune.boost 100
+-
+-    # set default schedTune value for foreground/top-app
+-    write /dev/stune/foreground/schedtune.prefer_idle 1
+-    write /dev/stune/top-app/schedtune.boost 10
+-    write /dev/stune/top-app/schedtune.prefer_idle 1
++    # Prefer responsive placement for foreground and top-app tasks.
++    write /dev/cpuctl/foreground/cpu.uclamp.latency_sensitive 1
++    write /dev/cpuctl/top-app/cpu.uclamp.min 0
++    write /dev/cpuctl/top-app/cpu.uclamp.latency_sensitive 1
+ 
+     # CPU is configured, re-enable thermal core control
+     write /sys/module/msm_thermal/core_control/enabled 1
+@@ -342,10 +338,6 @@ on property:sys.boot_completed=1
+     swapon_all /vendor/etc/fstab.qcom
+     write /proc/sys/vm/swappiness 100
+ 
+-    # Set runtime stune value
+-    write /dev/stune/schedtune.prefer_idle 0
+-    write /dev/stune/schedtune.boost 0
+-
+     # Enable UFS powersaving
+     write /sys/devices/soc/${ro.boot.bootdevice}/clkscale_enable 1
+     write /sys/devices/soc/${ro.boot.bootdevice}/clkgate_enable 1

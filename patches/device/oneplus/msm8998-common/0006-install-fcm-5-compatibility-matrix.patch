@@ -1,0 +1,15 @@
+diff --git a/common.mk b/common.mk
+index c02db7a..efdb14e 100644
+--- a/common.mk
++++ b/common.mk
+@@ -16,6 +16,10 @@ $(call inherit-product, frameworks/native/build/phone-xhdpi-6144-dalvik-heap.mk)
+ 
+ PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := true
+ 
++# Framework compatibility for the device's FCM level and vendor kernel.
++PRODUCT_PACKAGES += \
++    framework_compatibility_matrix.5.xml
++
+ # Overlays
+ DEVICE_PACKAGE_OVERLAYS += \
+     $(LOCAL_PATH)/overlay \

@@ -1,0 +1,47 @@
+diff --git a/mm-video-v4l2/vidc/common/Android.bp b/mm-video-v4l2/vidc/common/Android.bp
+index d3518ce..774e948 100644
+--- a/mm-video-v4l2/vidc/common/Android.bp
++++ b/mm-video-v4l2/vidc/common/Android.bp
+@@ -12,7 +12,11 @@ cc_library_static {
+         "-Werror",
+         "-D_ANDROID_",
+         "-D_ANDROID_ICS_",
+-    ],
++    ] + select(soong_config_variable("qtidisplay", "target_kernel_version"), {
++        "4.9": ["-D_TARGET_KERNEL_VERSION_49_"],
++        "4.14": ["-D_TARGET_KERNEL_VERSION_49_"],
++        default: [],
++    }),
+ 
+     header_libs: [
+         "display_headers",
+diff --git a/mm-video-v4l2/vidc/vdec/Android.bp b/mm-video-v4l2/vidc/vdec/Android.bp
+index 9155432..8e107ef 100644
+--- a/mm-video-v4l2/vidc/vdec/Android.bp
++++ b/mm-video-v4l2/vidc/vdec/Android.bp
+@@ -35,6 +35,10 @@ cc_library_shared {
+             "-DMAX_H264_LEVEL_51",
+         ],
+         default: [],
++    }) + select(soong_config_variable("qtidisplay", "target_kernel_version"), {
++        "4.9": ["-D_TARGET_KERNEL_VERSION_49_"],
++        "4.14": ["-D_TARGET_KERNEL_VERSION_49_"],
++        default: [],
+     }),
+ 
+     header_libs: [
+diff --git a/mm-video-v4l2/vidc/venc/Android.bp b/mm-video-v4l2/vidc/venc/Android.bp
+index d907835..5d33802 100644
+--- a/mm-video-v4l2/vidc/venc/Android.bp
++++ b/mm-video-v4l2/vidc/venc/Android.bp
+@@ -34,6 +34,10 @@ cc_library_shared {
+             "-DMAX_H264_LEVEL_51",
+         ],
+         default: [],
++    }) + select(soong_config_variable("qtidisplay", "target_kernel_version"), {
++        "4.9": ["-D_TARGET_KERNEL_VERSION_49_"],
++        "4.14": ["-D_TARGET_KERNEL_VERSION_49_"],
++        default: [],
+     }),
+ 
+     header_libs: [

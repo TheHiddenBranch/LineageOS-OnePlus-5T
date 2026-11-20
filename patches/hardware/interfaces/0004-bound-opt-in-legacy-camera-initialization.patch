@@ -1,0 +1,72 @@
+From: Codex <codex@local.invalid>
+Subject: [PATCH] camera: bound legacy HAL initialization on opted-in devices
+
+An unregistered provider stuck inside module initialization cannot
+be recovered by clients. Bound that constructor on opted-in devices
+so init can restart the service. Cancel the monotonic, thread-directed
+timer as soon as initialization returns. Default behavior is unchanged.
+
+--- a/camera/provider/2.4/default/LegacyCameraProviderImpl_2_4.cpp
++++ b/camera/provider/2.4/default/LegacyCameraProviderImpl_2_4.cpp
+@@ -20,6 +20,10 @@
+ #include <android-base/parseint.h>
+ #include <android-base/properties.h>
+ #include <android-base/strings.h>
++#include <android-base/threads.h>
++#include <log/log.h>
++#include <signal.h>
++#include <time.h>
+ 
+ #include "LegacyCameraProviderImpl_2_4.h"
+ #include "CameraDevice_1_0.h"
+@@ -51,6 +55,40 @@
+ const char *kHAL3_5 = "3.5";
+ const int kMaxCameraDeviceNameLen = 128;
+ const int kMaxCameraIdLen = 16;
++
++// Bound module initialization only on devices that explicitly opt in. A stuck
++// provider has not registered with hwservicemanager, so clients cannot recover it.
++class CameraInitializationWatchdog {
++public:
++    explicit CameraInitializationWatchdog(int timeoutMs) : mEnabled(timeoutMs > 0) {
++        if (!mEnabled) return;
++        struct sigevent event = {};
++        event.sigev_notify = SIGEV_THREAD_ID;
++        event.sigev_notify_thread_id = base::GetThreadId();
++        event.sigev_signo = SIGABRT;
++        LOG_ALWAYS_FATAL_IF(timer_create(CLOCK_MONOTONIC, &event, &mTimer) != 0,
++                            "Cannot create camera initialization watchdog");
++        struct itimerspec timeout = {};
++        timeout.it_value.tv_sec = timeoutMs / 1000;
++        timeout.it_value.tv_nsec = (timeoutMs % 1000) * 1000000;
++        LOG_ALWAYS_FATAL_IF(timer_settime(mTimer, 0, &timeout, nullptr) != 0,
++                            "Cannot start camera initialization watchdog");
++    }
++
++    ~CameraInitializationWatchdog() {
++        if (mEnabled) {
++            LOG_ALWAYS_FATAL_IF(timer_delete(mTimer) != 0,
++                                "Cannot cancel camera initialization watchdog");
++        }
++    }
++
++    CameraInitializationWatchdog(const CameraInitializationWatchdog&) = delete;
++    CameraInitializationWatchdog& operator=(const CameraInitializationWatchdog&) = delete;
++
++private:
++    const bool mEnabled;
++    timer_t mTimer = {};
++};
+ 
+ bool matchDeviceName(const hidl_string& deviceName, std::string* deviceVersion,
+                      std::string* cameraId) {
+@@ -266,6 +304,9 @@
+ LegacyCameraProviderImpl_2_4::LegacyCameraProviderImpl_2_4() :
+         camera_module_callbacks_t({sCameraDeviceStatusChange,
+                                    sTorchModeStatusChange}) {
++    const int timeoutMs = base::GetIntProperty<int>(
++            "vendor.camera.provider24.init_timeout_ms", 0, 0, 60000);
++    CameraInitializationWatchdog watchdog(timeoutMs);
+     mInitFailed = initialize();
+ }
+ 

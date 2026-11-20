@@ -1,0 +1,26 @@
+From: Codex <codex@local.invalid>
+Subject: [PATCH] bluetooth: match UART power-management ioctls to the 4.14 kernel
+
+Adapt the supplied AArch64 HAL from 0x5441/2/3 to the kernel
+TIOCPMGET/TIOCPMPUT/TIOCPMACT requests 0x544d/e/f. The old get request
+collides with TIOCGPTPEER; clock voting otherwise fails and UART
+autosuspend loses the firmware download completion event.
+Only 25 checked MOV immediate instructions change.
+
+diff --git a/proprietary/vendor/lib64/hw/android.hardware.bluetooth@1.0-impl-qti.so b/proprietary/vendor/lib64/hw/android.hardware.bluetooth@1.0-impl-qti.so
+index 221013aa1a218c9b497eaeba926682cbf954aafd..93777e573dc906162d1a574ee3af1881f13553f8 100644
+GIT binary patch
+delta 299
+zcmezITJFbdxrP?T7N#xC8;&q7?A*TT2(uP5)4|T|_l`41F#;LwRwtRaTb*S2HUlJW
+zl*H=9#PqUrdRYpq65ol=t{{5`j_e0a3?VBzr!Pxk^#dxJ{w;-7i|JwKbfr|*G>}nU
+zsjSDCK#ZUa)@|HC#&oU{)-KM2K-~|Rg;(vIE?B}UJbgn6s|QH#R|#toh|VizHG-=t
+zgQ(e4%6bAWW;>m+lvRBCk}_5ikosL^th?ZHj1ct`%2{22a@((!v$jct7;%$XjkrK=
+voHUp9A4u1vd91TQe7*UsWgH+EeM@1OGTq@KvqJls`K&<9w*Aa}b{#PQj#hbP
+
+delta 299
+zcmezITJFbdxrP?T7N#xC8;&q3c5L5tgjtK3$+2Vmz2nSLj6g=a)k)^<Rwr4$%>YRo
+zC9yg&F=cj4FH2!n;`8X}3bJS5$bP`Y5TemBeOU^tA5hWsZz-%=Oo<)Sl~P&LKt^??
+zvL0gsF@iE!w{Zg*)457myEq+zx*sqLui80Xu!L23`i2r#50Koi64oLRoma|g1XoiA
+zQM0F%^#okZb~<AztN8RKWvn6~^}EVgcfsWtA?hcTv$_D~wqGk}ZIcEu;wG~iae>@8
+uX)fzOkgiGdSZ9Iwdh=P!I6yA?mclS)y2C|gh4wS^S%H{s`<eOdI${98{A|ns
+

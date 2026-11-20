@@ -1,0 +1,28 @@
+diff --git a/init/host_init_stubs.h b/init/host_init_stubs.h
+index 2fef9d3..4a4496b 100644
+--- a/init/host_init_stubs.h
++++ b/init/host_init_stubs.h
+@@ -25,6 +25,10 @@
+ 
+ #include <android-base/properties.h>
+ 
++#ifdef FIRST_STAGE_INIT
++#include "reboot_utils.h"
++#endif
++
+ // android/api-level.h
+ #define __ANDROID_API_P__ 28
+ #define __ANDROID_API_Q__ 29
+@@ -46,10 +50,12 @@ inline bool CanReadProperty(const std::string&, const std::string&) {
+ }
+ 
+ // reboot_utils.h
++#ifndef FIRST_STAGE_INIT
+ inline void SetFatalRebootTarget(const std::optional<std::string>& = std::nullopt) {}
+ inline void __attribute__((noreturn)) InitFatalReboot(int signal_number) {
+     abort();
+ }
++#endif
+ 
+ // selabel.h
+ inline void SelabelInitialize() {}

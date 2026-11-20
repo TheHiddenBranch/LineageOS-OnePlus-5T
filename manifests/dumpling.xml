@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote name="dumpling-github" fetch="https://github.com/" />
+
+  <!-- The HIDL ANT service is provided by ant_client, not ant_service. -->
+  <project name="LineageOS/android_external_ant-wireless_ant_client"
+           path="external/ant-wireless/ant_client" remote="dumpling-github"
+           revision="846dbb2d61e119b9fd8faa0dfafe5a4f33bbd785"
+           upstream="refs/heads/lineage-22.2" clone-depth="1" />
+
+  <!-- Restore the namespace link required by the legacy MSM8998 HALs. -->
+  <extend-project name="LineageOS/android_hardware_qcom-caf_common"
+                  path="hardware/qcom-caf/common">
+    <linkfile src="os_pickup.bp" dest="hardware/qcom-caf/msm8998/Android.bp" />
+  </extend-project>
+
+  <project name="LineageOS/android_hardware_oneplus"
+           path="hardware/oneplus" remote="dumpling-github"
+           revision="37f806c3edbe5e5ff099958b30cab6a3c33db35d"
+           upstream="refs/heads/lineage-24.0" clone-depth="1" />
+
+  <!-- MSM8998 HAL branches were dropped from 24.0; preserve them as porting bases. -->
+  <project name="LineageOS/android_hardware_qcom_audio"
+           path="hardware/qcom-caf/msm8998/audio" remote="dumpling-github"
+           revision="717b078e6fa14e118c281b6a4eb61a1322652611"
+           upstream="refs/heads/lineage-22.2-caf-msm8998" clone-depth="1" />
+  <project name="LineageOS/android_hardware_qcom_display"
+           path="hardware/qcom-caf/msm8998/display" remote="dumpling-github"
+           revision="dcede86f9cd0215da892a7cc37eb28f738c0868d"
+           upstream="refs/heads/lineage-22.2-caf-msm8998" clone-depth="1" />
+  <project name="LineageOS/android_hardware_qcom_media"
+           path="hardware/qcom-caf/msm8998/media" remote="dumpling-github"
+           revision="f5b08c7c82e8c3445712df2f48c0d14eaa74e313"
+           upstream="refs/heads/lineage-22.2-caf-msm8998" clone-depth="1" />
+
+  <!-- The latest official device trees are porting bases, not LineageOS 24 support. -->
+  <project name="LineageOS/android_device_oneplus_dumpling"
+           path="device/oneplus/dumpling" remote="dumpling-github"
+           revision="673c6b5b76d5d4806759014efb2e9ec8704022da"
+           upstream="refs/heads/lineage-22.2" clone-depth="1" />
+  <project name="LineageOS/android_device_oneplus_msm8998-common"
+           path="device/oneplus/msm8998-common" remote="dumpling-github"
+           revision="213a9c24ebcc555c67fde3af8c7c7951502b20cd"
+           upstream="refs/heads/lineage-22.2" clone-depth="1" />
+
+  <!-- Primary downstream vendor kernel; never replace with a mainline kernel. -->
+  <project name="OnePlus-5-T/4.14-kernel-oneplus-msm8998"
+           path="kernel/oneplus/msm8998" remote="dumpling-github"
+           revision="3719013ea210a7a84848027c71ed4146e1f56b7a"
+           upstream="refs/heads/4.14.355/msm8998_oneplus" clone-depth="1" />
+
+</manifest>

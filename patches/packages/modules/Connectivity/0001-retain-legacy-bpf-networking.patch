@@ -1,0 +1,91 @@
+Subject: [PATCH] Retain legacy networking programs and guard ring-buffer consumers
+
+diff --git a/bpf/loader/Android.bp b/bpf/loader/Android.bp
+index bee2681b4cea5633d7bf343c1d10359950ef3afb..b24e7a7047aec79d1fcab51196b0271a10f29608 100644
+--- a/bpf/loader/Android.bp
++++ b/bpf/loader/Android.bp
+@@ -51,7 +51,10 @@ cc_binary {
+     cflags: [
+         "-Wformat",
+         "-Wformat-signedness",
+-    ],
++    ] + select(soong_config_variable("netbpfload", "legacy_kernel"), {
++        true: ["-DLEGACY_BPF_KERNEL"],
++        default: [],
++    }),
+     sanitize: {
+         integer_overflow: true,
+     },
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index 7ba3247dcc6f31ab9b612d410202067c821ab58a..b2fa30623e1620e24222488e8cb31797c94612dc 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -1576,8 +1576,12 @@ static int doLoad(char** argv, char * const envp[]) {
+     // 25Q4 bumps the kernel requirement up to 5.10
+     // see also: //system/netd/tests/kernel_test.cpp TestKernel510
+     if (isAtLeast25Q4 && !isAtLeastKernelVersion(5, 10)) {
++#ifdef LEGACY_BPF_KERNEL
++        ALOGW("Using legacy BPF programs below the Android 25Q4 kernel minimum.");
++#else
+         ALOGE("Android 25Q4 requires kernel 5.10.");
+         return 7;
++#endif
+     }
+ 
+     // 26Q4 bumps the kernel requirement up to 5.15
+@@ -1873,7 +1877,8 @@ static int doLoad(char** argv, char * const envp[]) {
+     }
+ 
+     // unreachable before U QPR3
+-    if (exists(uprobestatsBpfLoader)) {
++    // Uprobe stats programs require BPF ring buffers (Linux 5.8).
++    if (isAtLeastKernelVersion(5, 8) && exists(uprobestatsBpfLoader)) {
+       ALOGI("done, transferring control to uprobestatsbpfload.");
+       const char *args[] = {
+           uprobestatsBpfLoader,
+diff --git a/bpf/progs/netd.c b/bpf/progs/netd.c
+index e4cd7c93b40b022916697121bd9bae7cfe63362d..dc55da553b0082d34d619bda6ed63cad1e30e0ec 100644
+--- a/bpf/progs/netd.c
++++ b/bpf/progs/netd.c
+@@ -1002,7 +1002,7 @@ DEFINE_NETD_BPF_PROG_RANGES(ingress, stats, 5_10, INF, 25Q2, 25Q4)
+ }
+ 
+ // Android 25Q2/25Q3 5.4 (localnet protection)
+-DEFINE_NETD_BPF_PROG_RANGES(ingress, stats, 5_4, 5_10, 25Q2, 25Q4)
++DEFINE_NETD_BPF_PROG_RANGES(ingress, stats, 5_4, 5_10, 25Q2, MAXAPI)
+ (struct __sk_buff* skb) {
+     return bpf_traffic_account(skb, INGRESS, KVER_5_4, API(25Q2));
+ }
+@@ -1058,7 +1058,7 @@ DEFINE_NETD_BPF_PROG_RANGES(egress, stats, 5_10, INF, 25Q2, 25Q4)
+ }
+ 
+ // Android 25Q2/25Q3 5.4 (localnet protection)
+-DEFINE_NETD_BPF_PROG_RANGES(egress, stats, 5_4, 5_10, 25Q2, 25Q4)
++DEFINE_NETD_BPF_PROG_RANGES(egress, stats, 5_4, 5_10, 25Q2, MAXAPI)
+ (struct __sk_buff* skb) {
+     return bpf_traffic_account(skb, EGRESS, KVER_5_4, API(25Q2));
+ }
+diff --git a/service/src/com/android/server/ConnectivityService.java b/service/src/com/android/server/ConnectivityService.java
+index 7682d5082635aeaa6f36c555c51f0ab2c17932c6..2636906a9c0ccd245845903233f9bec0a7f49ed1 100644
+--- a/service/src/com/android/server/ConnectivityService.java
++++ b/service/src/com/android/server/ConnectivityService.java
+@@ -2655,7 +2655,8 @@ public class ConnectivityService extends IConnectivityManager.Stub
+                 ? mDeps.makeMultiProxyTracker(mContext, mHandler)
+                 : mDeps.makeProxyTracker(mContext, mHandler);
+ 
+-        if (mDeps.isAtLeastB()) {
++        if (mDeps.isAtLeastB() && new java.io.File(
++                "/sys/fs/bpf/netd_shared/map_netd_local_net_note_op_ringbuf").exists()) {
+             mLocalNetEventListener = mDeps.getLocalNetEventListener(
+                     mContext,
+                     mHandler.getLooper(),
+@@ -5082,7 +5083,8 @@ public class ConnectivityService extends IConnectivityManager.Stub
+             mSatisfiedByLocalNetworkMetrics.start();
+         }
+ 
+-        if (mBpfNetMaps.isLoopbackAccessMetricsEnabled()) {
++        if (mBpfNetMaps.isLoopbackAccessMetricsEnabled() && new java.io.File(
++                "/sys/fs/bpf/netd_shared/map_netd_loopback_access_ringbuf").exists()) {
+             BpfEventPoller.nativeInitLoopbackEventConsumer();
+         }
+ 

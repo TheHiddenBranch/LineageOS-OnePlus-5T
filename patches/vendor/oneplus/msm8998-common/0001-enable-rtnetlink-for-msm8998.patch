@@ -1,0 +1,19 @@
+From: Codex <codex@local.invalid>
+Subject: [PATCH] netmgr: use route netlink for the 4.14 RMNET driver
+
+The selected kernel implements RMNET over NETLINK_ROUTE and does not
+implement the old NETLINK_RMNET protocol 31. Select the supported mode
+for MSM8998 so netmgr can create the modem data interfaces.
+
+diff --git a/proprietary/vendor/etc/data/netmgr_config.xml b/proprietary/vendor/etc/data/netmgr_config.xml
+index 04abd8e6b26788a600efd8042a7b4c0776529a00..bc37f6803f36e9ef409f8e0a8722975d13bfb99e 100644
+--- a/proprietary/vendor/etc/data/netmgr_config.xml
++++ b/proprietary/vendor/etc/data/netmgr_config.xml
+@@ -1947,6 +1947,7 @@
+       <data name="dynamic_tc_ul_baserate" type="int"> 1 </data>
+       <data name="tc_ul_burst" type="int"> 25000 </data>
+       <data name="rmnet_data_enabled" type="int"> 1 </data>
++      <data name="rtm_rmnet_data_enabled" type="int"> 1 </data>
+       <data name="dataformat_agg_dl_pkt" type="int"> 10 </data>
+       <data name="dataformat_agg_dl_size" type="int"> 8192 </data>
+       <data name="dataformat_agg_ul_pkt" type="int"> 0 </data>

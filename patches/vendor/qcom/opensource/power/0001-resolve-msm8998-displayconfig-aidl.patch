@@ -1,0 +1,12 @@
+diff --git a/Android.bp b/Android.bp
+index 6579bd3..87c8b7b 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -75,6 +75,7 @@ cc_binary {
+         any @ flag_val: ["//" + flag_val + ":libdisplayconfig.qti"],
+         default: [],
+     }) + select(soong_config_variable("qtidisplay", "headers_namespace"), {
++        "hardware/qcom-caf/msm8998/display": ["//vendor/qcom/opensource/commonsys-intf/display:vendor.qti.hardware.display.config-V12-ndk"],
+         any @ flag_val: ["//" + flag_val + ":vendor.qti.hardware.display.config-V12-ndk"],
+         default: [],
+     }),
