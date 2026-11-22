@@ -4,6 +4,9 @@
 # Local logs
 /logs/
 
+# Local copies of the release files
+/releases/
+
 # Android checkout and generated build output
 /src/
 
