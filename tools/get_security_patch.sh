@@ -4,4 +4,5 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 
-grep -n 'security_patch' "$PARENT_DIR/src/out/target/product/dumpling/system/build.prop"
+sed -n 's/.*string_value: "\([^"]*\)".*/\1/p' \
+  "$PARENT_DIR/src/vendor/lineage/release/flag_values/cp2a/RELEASE_PLATFORM_SECURITY_PATCH.textproto"
