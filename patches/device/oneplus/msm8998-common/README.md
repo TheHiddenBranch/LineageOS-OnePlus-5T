@@ -80,7 +80,11 @@ packaged.
 Aconfig needs writable metadata storage before encrypted userdata is available, but this
 device has no metadata partition. Add the root mount point and a system init `fs` action
 that creates a cache subdirectory, bind-mounts it as metadata and restores its labels
-before the platform post-fs retry. Wiping cache also discards this flag storage.
+before the platform post-fs retry. Mirror the platform's metadata file contexts at
+the cache backing path so cache relabeling preserves Aconfig's specialized types.
+Force the initial relabel to repair stale labels after ROM switches; otherwise
+Aconfig initialization can fail and Advanced Protection crashes `system_server`
+on a missing feature flag. Wiping cache also discards this flag storage.
 
 ## `0014-label-4.14-platform-sysfs-paths.patch`
 
