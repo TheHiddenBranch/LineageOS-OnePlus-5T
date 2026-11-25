@@ -1,6 +1,3 @@
-From: Codex <codex@local.invalid>
-Subject: [PATCH] bluetooth: match UART power-management ioctls to the 4.14 kernel
-
 Adapt the supplied AArch64 HAL from 0x5441/2/3 to the kernel
 TIOCPMGET/TIOCPMPUT/TIOCPMACT requests 0x544d/e/f. The old get request
 collides with TIOCGPTPEER; clock voting otherwise fails and UART

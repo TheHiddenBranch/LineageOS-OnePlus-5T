@@ -1,4 +1,4 @@
-Subject: [PATCH] Opt in to legacy BPF program selection
+Opt in to legacy BPF program selection
 
 diff --git a/common.mk b/common.mk
 index 0950873b48139185f45910a9842fb37ad2a72621..0993580e3b417093f08df6ffcee4e286b964445a 100644

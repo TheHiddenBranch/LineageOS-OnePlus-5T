@@ -1,6 +1,3 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH] bpf/verifier: track register ranges through ARSH
-
 Backport upstream 9cbe1f5a32dcd6d0508326f7d9098e5bc380a4fe.
 This kernel continues to reject ALU32 ARSH; only the existing ALU64
 operation gains range tracking. The 0/1 cgroup verdict check is unchanged.

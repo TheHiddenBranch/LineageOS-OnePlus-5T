@@ -1,6 +1,3 @@
-From: Codex <codex@local.invalid>
-Subject: [PATCH] camera: enable a 20-second initialization deadline
-
 The legacy provider was observed running but absent from the HIDL
 service registry, leaving camera and torch unavailable until its
 process was restarted. Enable the opt-in initialization watchdog.

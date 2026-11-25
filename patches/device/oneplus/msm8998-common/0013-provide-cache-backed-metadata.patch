@@ -1,7 +1,9 @@
-Subject: [PATCH] Provide metadata storage before platform flag initialization
-
 Use a persistent cache subdirectory for metadata on this partition layout.
 Run in system init after device fs mounting and before post-fs Aconfig setup.
+Mirror the platform metadata labels at the cache backing path so recursive
+cache relabeling cannot turn the bound metadata into cache_file. Force the
+initial metadata relabel to repair stale contexts after ROM switches even
+when restorecon hashes match. Preserve the platform's existing permissions.
 
 diff --git a/BoardConfigCommon.mk b/BoardConfigCommon.mk
 index ba7586c..ae139b4 100644

@@ -1,4 +1,4 @@
-Subject: [PATCH] Enable the existing libui mapper 2.x fallback
+Enable the existing libui mapper 2.x fallback
 
 diff --git a/common.mk b/common.mk
 index 0a02c745db673a28092ae01313ed8381aac629dc..0950873b48139185f45910a9842fb37ad2a72621 100644

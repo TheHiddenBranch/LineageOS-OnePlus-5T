@@ -1,5 +1,3 @@
-Subject: [PATCH] Declare ANT dynamic receiver export state
-
 Keep accepting cross-process ANT requests and Bluetooth state broadcasts while
 satisfying the explicit receiver-export checks applied in the system process.
 

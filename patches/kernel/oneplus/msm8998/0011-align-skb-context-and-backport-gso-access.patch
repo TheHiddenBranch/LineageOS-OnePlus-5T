@@ -1,5 +1,3 @@
-Subject: [PATCH] Align the skb BPF context ABI and backport GSO reads
-
 Adapt the GSO context conversion from Linux v5.7, including the
 source/destination register alias fix in the shared-info pointer lookup.
 Keep unsupported timestamp and wire-length fields inaccessible.

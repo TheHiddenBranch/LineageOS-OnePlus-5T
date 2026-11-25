@@ -1,6 +1,3 @@
-From: Codex <codex@local.invalid>
-Subject: [PATCH] mm: backport memfd future-write sealing with private COW fix
-
 Adapt upstream ab3948f58ff841e51feb845720624665ef5b7ef3 and
 05d351102dbe4e103d6bdac18b1122cd3cd04925 to the 4.14 shmem-based
 memfd implementation. Android 17 bitmap parceling requests this seal.

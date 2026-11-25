@@ -1,5 +1,3 @@
-Subject: [PATCH] Export the namespace providing the Power HAL runtime library
-
 libperfmgr is a shared dependency of the Lineage Power HAL. Its nested
 Soong namespace must be exported to Make for the vendor library to be installed.
 

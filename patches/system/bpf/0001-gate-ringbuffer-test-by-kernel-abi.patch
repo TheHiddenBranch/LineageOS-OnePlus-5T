@@ -1,4 +1,4 @@
-Subject: [PATCH] Honor the ring-buffer test minimum kernel ABI before loading its map
+Honor the ring-buffer test minimum kernel ABI before loading its map
 
 diff --git a/loader/bpfloader.rs b/loader/bpfloader.rs
 index f23d8820c525e48c27ced432c622cf3acba092af..74ef8b663856c78668f321fd898369a86dd5a28d 100644

@@ -80,7 +80,7 @@ Existing BPF objects using the old vendor offsets require rebuilding.
 The verifier loses scalar bounds through arithmetic right shifts and rejects netd’s
 sign-extended 0/1 verdicts. Add tracked-number ARSH and signed/unsigned range
 propagation for the existing ALU64 operation, preserving verdict and opcode validation.
-Backported from [Linux commit
+Backported from Yonghong Song's [Linux commit
 9cbe1f5](https://github.com/torvalds/linux/commit/9cbe1f5a32dcd6d0508326f7d9098e5bc380a4fe).
 
 ## `0013-backport-memfd-future-write-seal.patch`

@@ -1,6 +1,3 @@
-From: Codex <codex@local.invalid>
-Subject: [PATCH] sepolicy: label the 4.14 platform-bus sysfs paths
-
 Use existing hardware-specific types for the actual 4.14 paths.
 The old /devices/soc rules do not label /devices/platform/soc.
 No allow rules, types, permissive domains or init behavior change.

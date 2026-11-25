@@ -1,4 +1,4 @@
-Subject: [PATCH] Retain legacy networking programs and guard ring-buffer consumers
+Retain legacy networking programs and guard ring-buffer consumers
 
 diff --git a/bpf/loader/Android.bp b/bpf/loader/Android.bp
 index bee2681b4cea5633d7bf343c1d10359950ef3afb..b24e7a7047aec79d1fcab51196b0271a10f29608 100644

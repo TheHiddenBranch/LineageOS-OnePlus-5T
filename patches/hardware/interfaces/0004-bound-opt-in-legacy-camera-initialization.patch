@@ -1,6 +1,3 @@
-From: Codex <codex@local.invalid>
-Subject: [PATCH] camera: bound legacy HAL initialization on opted-in devices
-
 An unregistered provider stuck inside module initialization cannot
 be recovered by clients. Bound that constructor on opted-in devices
 so init can restart the service. Cancel the monotonic, thread-directed

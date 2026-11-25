@@ -1,4 +1,4 @@
-Subject: [PATCH] Restore device-local ION labeling and legacy service access
+Restore device-local ION labeling and legacy service access
 
 diff --git a/sepolicy/vendor/file_contexts b/sepolicy/vendor/file_contexts
 index 7c2645e847be65c7f78d8169d1b9ee99ddbbc81b..dda0160a2c0cce77fa98a0330c7b3dec5022c9b9 100644
