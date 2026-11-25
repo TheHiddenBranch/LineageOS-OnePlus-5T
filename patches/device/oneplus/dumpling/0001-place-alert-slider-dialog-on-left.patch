@@ -1,0 +1,38 @@
+KeyHandler defaults to a right-hand slider at 25 percent of the screen.
+Place the dialog on the left and anchor its middle position at 11.5 percent
+in portrait. Leave room for the existing upward/downward state offsets.
+Retain the landscape anchor so the wider dialog and horizontal offsets fit.
+
+diff --git a/overlay-lineage/hardware/oneplus/packages/KeyHandler/res/values/config.xml b/overlay-lineage/hardware/oneplus/packages/KeyHandler/res/values/config.xml
+new file mode 100644
+index 0000000..eb60b57
+--- /dev/null
++++ b/overlay-lineage/hardware/oneplus/packages/KeyHandler/res/values/config.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The LineageOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- The OnePlus 5T alert slider is on the left edge. -->
++    <bool name="alert_slider_dialog_left">true</bool>
++
++    <!-- Anchor the middle position near the switch, leaving room for both state offsets. -->
++    <item name="alert_slider_dialog_y" type="fraction">11.5%</item>
++</resources>
+diff --git a/overlay-lineage/hardware/oneplus/packages/KeyHandler/res/values-land/config.xml b/overlay-lineage/hardware/oneplus/packages/KeyHandler/res/values-land/config.xml
+new file mode 100644
+index 0000000..a4acef6
+--- /dev/null
++++ b/overlay-lineage/hardware/oneplus/packages/KeyHandler/res/values-land/config.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The LineageOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- Keep room for the wider dialog and its horizontal state offsets. -->
++    <item name="alert_slider_dialog_y" type="fraction">25%</item>
++</resources>

@@ -1,0 +1,17 @@
+A started background service can become cached and frozen while its
+UEventObserver waits for kernel events. Netlink events do not wake a
+frozen app, leaving the alert slider unresponsive. Mark this system app
+persistent so its hardware listener remains runnable.
+
+diff --git a/packages/KeyHandler/AndroidManifest.xml b/packages/KeyHandler/AndroidManifest.xml
+index 458ac79..0972812 100644
+--- a/packages/KeyHandler/AndroidManifest.xml
++++ b/packages/KeyHandler/AndroidManifest.xml
+@@ -27,6 +27,7 @@
+     <application
+         android:icon="@mipmap/ic_launcher"
+         android:label="@string/device_settings_app_name"
++        android:persistent="true"
+         android:theme="@style/Theme.SubSettingsBase.Expressive"
+         android:defaultToDeviceProtectedStorage="true"
+         android:directBootAware="true">
