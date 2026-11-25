@@ -129,14 +129,15 @@ tar --no-same-owner -xzf external/vendor/vendor-oneplus.tar.gz -C src
 
 ### Apply the workspace patches
 
-Check and apply the documented patches in order:
+Run from the project root. Check and apply the documented patches in order; stop
+and resolve any error before continuing with the build:
 
 ```bash
 find patches -type f -name '*.patch' | sort | while IFS= read -r patch; do
   repo_path="${patch#patches/}"
   repo_path="${repo_path%/*}"
-  git -C "src/$repo_path" apply --check - < "$patch"
-  git -C "src/$repo_path" apply - < "$patch"
+  git -C "src/$repo_path" apply --check - < "$patch" &&
+    git -C "src/$repo_path" apply - < "$patch" || exit 1
 done
 ```
 
@@ -166,8 +167,8 @@ source tools/envsetup.sh
 find patches -type f -name '*.patch' | sort -r | while IFS= read -r patch; do
   repo_path="${patch#patches/}"
   repo_path="${repo_path%/*}"
-  git -C "src/$repo_path" apply --check --reverse - < "$patch"
-  git -C "src/$repo_path" apply --reverse - < "$patch"
+  git -C "src/$repo_path" apply --check --reverse - < "$patch" &&
+    git -C "src/$repo_path" apply --reverse - < "$patch" || exit 1
 done
 ```
 
@@ -178,13 +179,16 @@ cp manifests/sources.lock.xml "logs/sources.lock-before-$(date -u +%Y%m%dT%H%M%S
 cd src
 repo init -u https://github.com/LineageOS/android.git -b lineage-24.0 \
   -m default.xml --git-lfs --no-clone-bundle --depth=1
-mkdir -p .repo/local_manifests
-cp ../manifests/dumpling.xml .repo/local_manifests/dumpling.xml
-
-repo sync --fail-fast --no-clone-bundle
+mkdir -p .repo/local_manifests &&
+cp ../manifests/dumpling.xml .repo/local_manifests/dumpling.xml &&
+repo list device/oneplus/dumpling kernel/oneplus/msm8998 &&
+repo sync --fail-fast --no-clone-bundle &&
 repo manifest -r -o ../tmp/sources.lock.updated.xml
 cd ..
 ```
+
+The project check must list both Dumpling and its kernel. If any command fails,
+resolve the error before using the exported manifest or continuing below.
 
 Review the revision changes before replacing the source lock. Then select the new lock so later syncs reproduce this updated source snapshot. The lock already includes the local projects, so move the local manifest aside to avoid duplicate paths:
 
